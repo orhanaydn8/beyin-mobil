@@ -1,0 +1,1936 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>🧠 Concordia Beyin</title>
+  <!-- Tek dosya, dış istek yok (api.github.com hariç — veri senkronu): CDN/font/kütüphane YASAK. -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#8a6f47">
+  <link rel="apple-touch-icon" href="./ikon-192.png">
+  <style>
+    :root {
+      --bg: #f7f4ee;
+      --bg-panel: #ffffff;
+      --bg-elev: #efeae0;
+      --fg: #0f1419;
+      --fg-muted: #6a655c;
+      --sinir: #e8e2d2;
+      --vurgu: #8a6f47;
+      --yesil: #557d46;
+      --mavi: #46698a;
+      --sari: #b3912f;
+      --kirmizi: #b04a3a;
+      --turuncu: #c77b3b;
+      --font-sistem: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-baslik: Georgia, 'Times New Roman', serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sistem);
+    }
+
+    #ekranlar { min-height: 100%; }
+
+    /* [hidden] display-guard dersi (Görev 5): bir katmana display: ... tanımlanırsa buraya
+       aynı seçici için [katman][hidden]{display:none} eklenmeli — tarayıcının varsayılan
+       [hidden]{display:none} kuralı daha yüksek özgüllükteki bir display tarafından ezilebilir. */
+    #ekranlar > div[hidden] { display: none; }
+
+    /* --- Görev 5: UI katmanı --- */
+
+    h1, h2 { font-family: var(--font-baslik); margin: 0 0 8px; }
+    h1 { font-size: 1.3rem; }
+    h2 { font-size: 1.05rem; }
+    p { margin: 0 0 8px; line-height: 1.4; }
+    a { color: var(--vurgu); }
+
+    /* Dokunma hedefleri ≥44px (brief zorunluluğu). display KASITLI olarak burada
+       tanımlanmıyor (input/select/textarea/button varsayılan inline-block'unda kalır) —
+       böylece [hidden] öznitelikli bir form elemanı (ör. #finans-tarih) tarayıcının
+       varsayılan [hidden]{display:none} kuralıyla sorunsuz gizlenir; ayrı guard GEREKMEZ. */
+    input, select, textarea, button {
+      min-height: 44px;
+      font-size: 16px;
+      font-family: inherit;
+      border-radius: 8px;
+      border: 1px solid var(--sinir);
+      padding: 8px 12px;
+      width: 100%;
+      background: var(--bg-panel);
+      color: var(--fg);
+    }
+    textarea { min-height: 60px; resize: vertical; }
+    button { cursor: pointer; width: auto; }
+    input[type="checkbox"] { width: 20px; height: 20px; min-height: 20px; vertical-align: middle; }
+    label { display: block; margin: 10px 0 4px; font-size: 0.85rem; color: var(--fg-muted); }
+    .checkbox-satir { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--fg); }
+    .checkbox-satir input { width: 20px; }
+
+    .btn-birincil { background: var(--vurgu); color: #fff; border: none; font-weight: 600; margin-top: 8px; }
+    .btn-ikincil { background: var(--bg-elev); border: 1px solid var(--sinir); color: var(--fg); }
+    .btn-tehlike { background: var(--kirmizi); color: #fff; border: none; font-weight: 600; }
+    .btn-metin { background: none; border: none; color: var(--vurgu); font-weight: 600; width: auto; padding: 8px 4px; }
+    .mini-btn { min-height: 36px; width: auto; padding: 6px 10px; font-size: 0.85rem; background: var(--bg-elev); }
+
+    .hata-metin { color: var(--kirmizi); font-size: 0.9rem; }
+    .hata-serit { background: #f6dcd6; color: var(--kirmizi); padding: 12px 16px; border-radius: 8px; margin: 12px 0; }
+    .bos-mesaj, .yukleniyor { color: var(--fg-muted); padding: 16px 0; text-align: center; }
+
+    /* Kurulum sihirbazı — .kurulum-adim aynı özgüllükte ([hidden] ile eşit, 0-1-0) bir
+       display:flex taşıdığından, author-vs-author eşit özgüllükte GEÇ tanımlanan kazanır;
+       guard olmadan gizli adım görünür kalırdı. */
+    .ekran-ic { padding: 16px; max-width: 480px; margin: 0 auto; box-sizing: border-box; }
+    .ekran-orta { display: flex; flex-direction: column; gap: 12px; min-height: 100vh; justify-content: center; text-align: center; padding: 16px; box-sizing: border-box; }
+    .kurulum-adim { display: flex; flex-direction: column; gap: 8px; }
+    .kurulum-adim[hidden] { display: none; }
+    .kurulum-adim ol { padding-left: 20px; }
+    .kurulum-adim li { margin-bottom: 4px; }
+
+    /* Ana ekran — üst şerit + sekme içeriği + alt sekme bar, dikey flex. */
+    #ekran-ana { display: flex; flex-direction: column; height: 100vh; }
+    #ekran-ana[hidden] { display: none; }
+    #ust-serit {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; background: var(--bg-panel); border-bottom: 1px solid var(--sinir);
+      font-family: var(--font-baslik); font-size: 1.15rem; flex-shrink: 0;
+    }
+    .sekme-icerik { flex: 1 1 auto; overflow-y: auto; padding: 12px 16px 20px; box-sizing: border-box; }
+    #alt-sekme { display: flex; border-top: 1px solid var(--sinir); background: var(--bg-panel); flex-shrink: 0; }
+    .sekme-btn {
+      flex: 1; min-height: 54px; border: none; border-radius: 0; background: none;
+      color: var(--fg-muted); font-size: 0.9rem; border-top: 2px solid transparent;
+    }
+    .sekme-btn.aktif { color: var(--vurgu); font-weight: 700; border-top-color: var(--vurgu); }
+
+    #ekran-detay { padding: 12px 16px 24px; max-width: 480px; margin: 0 auto; box-sizing: border-box; }
+    .detay-ust { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .detay-ust h1 { flex: 1; margin: 0; }
+    .detay-blok { background: var(--bg-panel); border: 1px solid var(--sinir); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+    .finans-toplam { color: var(--fg-muted); font-size: 0.9rem; margin-bottom: 10px; }
+    .notlar-metin { white-space: pre-wrap; font-size: 0.9rem; color: var(--fg-muted); }
+
+    .is-liste { display: flex; flex-direction: column; gap: 8px; }
+    .is-karti {
+      display: flex; align-items: flex-start; gap: 10px; text-align: left;
+      background: var(--bg-panel); border: 1px solid var(--sinir); border-radius: 10px; padding: 12px;
+    }
+    .is-durum-nokta { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+    .is-govde { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .is-ad { font-weight: 700; }
+    .is-alt { font-size: 0.85rem; color: var(--fg-muted); }
+    .is-termin { font-size: 0.85rem; }
+
+    .satir-satiri {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 0; border-bottom: 1px solid var(--sinir);
+    }
+    .satir-satiri:last-child { border-bottom: none; }
+    .satir-metin { font-size: 0.9rem; flex: 1; }
+    .bitti-metin { color: var(--fg-muted); text-decoration: line-through; }
+    .satir-btnler { display: flex; gap: 6px; flex-shrink: 0; }
+    .duzenleme-serit { color: var(--vurgu); font-size: 0.85rem; }
+
+    #dikkat-form, #inbox-form { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+
+    /* Genel bildirim (toast) + onay modalı — #ekranlar DIŞINDA, kardeş global katman. */
+    #toast {
+      position: fixed; left: 50%; bottom: 78px; transform: translateX(-50%);
+      background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 20px;
+      font-size: 0.9rem; max-width: 90vw; text-align: center; z-index: 50;
+    }
+    #modal-onay, #modal-kuyruk-onay {
+      position: fixed; inset: 0; background: rgba(15, 20, 25, 0.5);
+      display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 60;
+    }
+    #modal-onay[hidden], #modal-kuyruk-onay[hidden] { display: none; }
+    .modal-kutu { background: var(--bg-panel); border-radius: 12px; padding: 18px; max-width: 360px; width: 100%; }
+    .modal-kutu p { white-space: pre-wrap; }
+    .modal-btnler { display: flex; gap: 8px; margin-top: 12px; }
+    .modal-btnler button { flex: 1; }
+
+    /* --- Görev 6: çevrimdışı — kuyruk rozeti + şerit --- */
+    #durum-rozeti { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-family: var(--font-sistem); font-weight: 400; }
+    #durum-rozeti .mini-btn { min-height: 32px; padding: 4px 10px; font-size: 0.8rem; margin: 0; }
+    #durum-rozeti .cevrimdisi-etiket { color: var(--fg-muted); }
+    .cevrimdisi-serit { background: var(--bg-elev); color: var(--fg-muted); padding: 10px 14px; border-radius: 8px; margin: 0 0 12px; font-size: 0.85rem; }
+  </style>
+</head>
+
+<body>
+  <main id="ekranlar">
+    <!-- PİN ekranı: kayıtlı 'mobil-anahtar' paketi VARSA burası gösterilir. -->
+    <div id="ekran-pin" hidden>
+      <div class="ekran-orta">
+        <h1>🧠 Beyin</h1>
+        <p>Devam etmek için PİN gir.</p>
+        <input type="password" id="pin-giris" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="PİN">
+        <button type="button" id="pin-ac-btn" class="btn-birincil">Aç</button>
+        <p id="pin-hata" class="hata-metin" hidden></p>
+        <p><a href="#" id="pin-unut-link">Anahtarı unut</a></p>
+      </div>
+    </div>
+
+    <!-- Kurulum sihirbazı: kayıtlı anahtar YOKSA burası gösterilir (3 adım). -->
+    <div id="ekran-kurulum" hidden>
+      <div class="ekran-ic">
+        <h1>🧠 Beyin — Kurulum</h1>
+
+        <div id="kurulum-adim-1" class="kurulum-adim">
+          <h2>1. Token oluştur</h2>
+          <ol>
+            <li><a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">github.com/settings/personal-access-tokens</a> adresine git</li>
+            <li>"Fine-grained tokens" → "Generate new token"</li>
+            <li>Repository access → Only select repositories → <b>ikinci-beyin</b></li>
+            <li>Permissions → Contents → <b>Read and write</b></li>
+            <li>"Generate token" → token'ı kopyala (bir daha gösterilmez)</li>
+          </ol>
+          <button type="button" id="kurulum-ileri-1" class="btn-birincil">İleri</button>
+        </div>
+
+        <div id="kurulum-adim-2" class="kurulum-adim" hidden>
+          <h2>2. Token'ı yapıştır</h2>
+          <label for="kurulum-token">GitHub token</label>
+          <input type="password" id="kurulum-token" autocomplete="off" placeholder="github_pat_…">
+          <button type="button" id="kurulum-token-dene" class="btn-birincil">Bağlantıyı dene</button>
+          <p id="kurulum-token-durum" class="hata-metin" hidden></p>
+        </div>
+
+        <div id="kurulum-adim-3" class="kurulum-adim" hidden>
+          <h2>3. PİN belirle</h2>
+          <label for="kurulum-pin-1">PİN</label>
+          <input type="password" id="kurulum-pin-1" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="PİN">
+          <label for="kurulum-pin-2">PİN (tekrar)</label>
+          <input type="password" id="kurulum-pin-2" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="PİN (tekrar)">
+          <button type="button" id="kurulum-bitir" class="btn-birincil">Kaydet</button>
+          <p id="kurulum-pin-hata" class="hata-metin" hidden></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ana ekran: üst şerit + 3 sekme (İşler/INBOX/DİKKAT) + alt sekme çubuğu. -->
+    <div id="ekran-ana" hidden>
+      <header id="ust-serit">
+        <span>🧠 Beyin</span>
+        <span id="durum-rozeti"></span>
+      </header>
+
+      <div id="ekran-isler" class="sekme-icerik"></div>
+      <div id="ekran-inbox" class="sekme-icerik" hidden></div>
+      <div id="ekran-dikkat" class="sekme-icerik" hidden></div>
+
+      <nav id="alt-sekme">
+        <button type="button" class="sekme-btn" data-sekme="isler">📋 İşler</button>
+        <button type="button" class="sekme-btn" data-sekme="inbox">📥 INBOX</button>
+        <button type="button" class="sekme-btn" data-sekme="dikkat">📌 DİKKAT</button>
+      </nav>
+    </div>
+
+    <!-- İş kartı detay ekranı: İşler listesinden bir karta dokununca doldurulur. -->
+    <div id="ekran-detay" hidden></div>
+  </main>
+
+  <!-- Genel bildirim + onay modalı: #ekranlar dışında, her ekranın üstünde gösterilebilir. -->
+  <div id="toast" hidden></div>
+  <div id="modal-onay" hidden>
+    <div class="modal-kutu">
+      <p id="modal-onay-metin"></p>
+      <div class="modal-btnler">
+        <button type="button" id="modal-onay-vazgec" class="btn-ikincil">Vazgeç</button>
+        <button type="button" id="modal-onay-evet" class="btn-tehlike">Evet, sil</button>
+      </div>
+    </div>
+  </div>
+  <div id="modal-kuyruk-onay" hidden>
+    <div class="modal-kutu">
+      <p>Bu kuyruktaki kayıtlar uygulanamadı (kart elle mi değişti?). Gözden geçirip "Atla" ile kuyruktan çıkarabilirsin.</p>
+      <div id="kuyruk-onay-liste"></div>
+      <div class="modal-btnler">
+        <button type="button" id="kuyruk-onay-kapat" class="btn-ikincil">Kapat</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // [SAF-BASLA:mobil-veri]
+    // Bu blok, masaüstü beyin-arayuz.html'in [SAF-BASLA:veri]…[SAF-SON:veri] bloğundan BİREBİR
+    // kopyalanmıştır (drift testi: test/mobil-drift.test.js). Küresel tarayıcı nesneleri (DOM kökü,
+    // pencere) ile Date.now/argümansız new Date()/Math.random YASAK — zaman/rastgelelik parametreyle gelir (mobil-global.md).
+    // bugunYMD KOPYALANMADI (Date.now'a dayanır) — tarih her zaman parametreyle geçirilir.
+
+    // port: ortak.js frontmatterAyristir (degerCoz alt-fonksiyonu dahil, aynı dizi/tırnak/yorum kuralları)
+    function degerCoz(deger) {
+      deger = deger.trim();
+      if (deger.startsWith('"')) {
+        const son = deger.indexOf('"', 1);
+        return son === -1 ? deger.slice(1) : deger.slice(1, son);
+      }
+      const h = deger.indexOf('#');
+      if (h !== -1) deger = deger.slice(0, h).trim();
+      if (deger.startsWith('[')) {
+        const kapan = deger.lastIndexOf(']');
+        const ic = deger.slice(1, kapan === -1 ? deger.length : kapan).trim();
+        if (!ic) return [];
+        return ic.split(',').map((s) => s.trim()).filter(Boolean);
+      }
+      return deger;
+    }
+
+    // port: ortak.js frontmatterAyristir — dönüş biçimi arayüz sözleşmesine göre {fm} (fm:null → frontmatter yok)
+    function fmOku(metin) {
+      const m = /^﻿?---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(metin);
+      if (!m) return { fm: null };
+      const fm = {};
+      for (const satir of m[1].split(/\r?\n/)) {
+        const t = satir.trim();
+        if (!t || t.startsWith('#')) continue;
+        const idx = satir.indexOf(':');
+        if (idx === -1) continue;
+        const anahtar = satir.slice(0, idx).trim();
+        fm[anahtar] = degerCoz(satir.slice(idx + 1));
+      }
+      return { fm };
+    }
+
+    // Frontmatter iç bölgesinin [innerStart, innerEnd) karakter aralığı — açılış/kapanış "---" ve
+    // gövde bu aralığın DIŞINDA kalır (fmAlanYaz'ın bayt-koruma garantisi buna dayanır).
+    function fmSinirlariBul(metin) {
+      const m = /^﻿?---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(metin);
+      if (!m) return null;
+      const innerStart = m.index + m[0].indexOf(m[1]);
+      const innerEnd = innerStart + m[1].length;
+      return { innerStart, innerEnd };
+    }
+
+    // Yazım biçimi: dizi → [a, b] · sayı/boolean → ham · dizge → ':' '#' veya kenar-boşluk/boşdize
+    // içeriyorsa tırnaklanır (frontmatter'daki mevcut kurallarla tutarlı), aksi halde çıplak.
+    // Bilinen sınır: değeri LİTERAL bir `"` karakteriyle BAŞLAYAN dizgeler (ör. bir tırnak
+    // işaretiyle başlayan alıntı metni) `degerCoz` tarafında kırılgan okunur — `degerCoz`
+    // baştaki `"`'ı açılış tırnağı sanıp değeri yanlış kırpar. Bu, `ortak.js`'ten miras kalan bir
+    // ayrıştırma sınırı (bu port kapsamında düzeltilmedi; kartlarda bu desen bugüne kadar yok).
+    function degerSerilestir(deger) {
+      if (Array.isArray(deger)) return `[${deger.join(', ')}]`;
+      if (typeof deger === 'number' || typeof deger === 'boolean') return String(deger);
+      const s = String(deger);
+      if (/[:#]/.test(s) || /^\s|\s$/.test(s) || s === '') return `"${s.replace(/"/g, '\\"')}"`;
+      return s;
+    }
+
+    // fmAlanYaz(metin, alan, deger) → metin — hedefli satır düzenleme.
+    // Tam yeniden-serileştirme YAPMAZ: yalnız hedef satır değişir; frontmatter DIŞI kısım
+    // (kapanış --- ve sonrası) bayt-birebir korunur; EOL (satırSonuTespit deseni) korunur.
+    // deger === null → satırı siler. Alan yoksa kapanış --- öncesine ekler (idempotent: ikinci
+    // çağrıda alan artık bulunduğu için yerinde güncellenir, çift satır oluşmaz).
+    function fmAlanYaz(metin, alan, deger) {
+      const sinir = fmSinirlariBul(metin);
+      if (!sinir) return metin;
+      const eol = metin.includes('\r\n') ? '\r\n' : '\n';
+      const inner = metin.slice(sinir.innerStart, sinir.innerEnd);
+      const satirlar = inner.length ? inner.split(/\r?\n/) : [];
+      let bulunduIdx = -1;
+      for (let i = 0; i < satirlar.length; i++) {
+        const idx = satirlar[i].indexOf(':');
+        if (idx === -1) continue;
+        if (satirlar[i].slice(0, idx).trim() === alan) { bulunduIdx = i; break; }
+      }
+      if (deger === null) {
+        if (bulunduIdx !== -1) satirlar.splice(bulunduIdx, 1);
+      } else {
+        const yeniSatir = `${alan}: ${degerSerilestir(deger)}`;
+        if (bulunduIdx !== -1) satirlar[bulunduIdx] = yeniSatir;
+        else satirlar.push(yeniSatir);
+      }
+      return metin.slice(0, sinir.innerStart) + satirlar.join(eol) + metin.slice(sinir.innerEnd);
+    }
+
+    function regexKac(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+    // bolumeEkle(metin, bolumBasligi, satir) → metin — "### <başlık>" gibi bir bölümün SONUNA
+    // (bir sonraki #-başlıktan / dosya sonundan önce, mevcut boş-satır ayracı korunarak) satır
+    // ekler. Bölüm bulunamazsa fırlatmaz, {hata:'bolum-yok'} döner.
+    function bolumeEkle(metin, bolumBasligi, satir) {
+      const eol = metin.includes('\r\n') ? '\r\n' : '\n';
+      const re = new RegExp('(^|\\r?\\n)(' + regexKac(bolumBasligi) + ')(\\r?\\n|$)');
+      const m = re.exec(metin);
+      if (!m) return { hata: 'bolum-yok' };
+      const icerikBaslangic = m.index + m[0].length;
+      const kalan = metin.slice(icerikBaslangic);
+      const sonrakiBaslikRe = /(^|\r?\n)#{1,6}[ \t]/;
+      const nm = sonrakiBaslikRe.exec(kalan);
+      const bolumSonu = nm ? icerikBaslangic + nm.index : metin.length;
+      const bolumMetni = metin.slice(icerikBaslangic, bolumSonu);
+      const kirpilmis = bolumMetni.replace(/[ \t\r\n]+$/, '');
+      const eklemeNoktasi = icerikBaslangic + kirpilmis.length;
+      // İçi-boş bölüm durumunda (kirpilmis boş) eklemeNoktasi'ndan sonrası doğrudan bir sonraki
+      // başlığa (veya dosya sonuna) yapışık olabilir — EOL'süz kalırsa başlık satırı bozulur.
+      // Sonrasında zaten bir EOL yoksa (bir sonraki başlıktan/ayraçtan önce) satırdan sonra ekle.
+      const sonrasiEolIleBaslamiyor = eklemeNoktasi < metin.length && !/^\r?\n/.test(metin.slice(eklemeNoktasi));
+      const eklenecek = (kirpilmis.length ? eol : '') + satir + (sonrasiEolIleBaslamiyor ? eol : '');
+      return metin.slice(0, eklemeNoktasi) + eklenecek + metin.slice(eklemeNoktasi);
+    }
+
+    // bolumeEkleYoksaAc(metin, bolumBasligi, satir) → metin — bolumeEkle'nin "bölüm yoksa AÇ" sarmalı:
+    // ① tam başlık varsa oraya; ② aynı emojiyle başlayan (metni elle sürüklenmiş) başlık varsa oraya;
+    // ③ hiçbiri yoksa bölümü kartın SONUNA açar. İş-uyarlamalı ilke: katman ilk kullanımda açılır —
+    // kartlar şablondan budandığı için 💵/📅 gibi bölümler çoğu kartta baştan yoktur.
+    function bolumeEkleYoksaAc(metin, bolumBasligi, satir) {
+      let sonuc = bolumeEkle(metin, bolumBasligi, satir);
+      if (!sonuc.hata) return sonuc;
+      const emoji = (/^#{1,6}[ \t]+(\S+)/.exec(bolumBasligi) || [])[1];
+      if (emoji) {
+        const baslikRe = /(^|\r?\n)(#{1,6}[ \t][^\r\n]*)/g;
+        let m;
+        while ((m = baslikRe.exec(metin))) {
+          const baslikSatiri = m[2].trim();
+          if (baslikSatiri.replace(/^#{1,6}[ \t]+/, '').startsWith(emoji)) {
+            sonuc = bolumeEkle(metin, baslikSatiri, satir);
+            if (!sonuc.hata) return sonuc;
+          }
+        }
+      }
+      const eol = metin.includes('\r\n') ? '\r\n' : '\n';
+      const govde = !metin.length || metin.endsWith('\n') ? metin : metin + eol;
+      return govde + eol + bolumBasligi + eol + satir + eol;
+    }
+
+    // SABİTLER — sema.js kopyası (drift bekçisi: test require('../sema') ile deepStrictEqual assert eder).
+    const SABITLER = {
+      KATMANLAR: ['teknik', 'metraj', 'ticari', 'hukuki', 'sure', 'finans', 'ruhsat', 'saha'],
+      KATMAN_ROZET: { teknik: '🔧', metraj: '📐', ticari: '💰', hukuki: '📄', sure: '📅', finans: '💵', ruhsat: '📋', saha: '🏗️' },
+      DURUMLAR: ['aktif', 'aktif-saha', 'beklemede', 'bitti', 'arsiv'],
+      DURUM_ETIKET: { aktif: 'Aktif', 'aktif-saha': '🏗️ Saha', beklemede: '⏸️ Beklemede', bitti: '✅ Bitti', arsiv: '🗂️ Arşiv' },
+    };
+
+    // katman → şablondaki (_SABLON_is-karti.md) TAM bölüm başlığı eşlemesi. Katman notu formu ve
+    // sablonKatmanBuda bu eşlemeyi kullanır. Gerçek kartlarda başlık metni zamanla elle
+    // sürüklenmiş olabilir (ör. 'Teknik (statik proje)' vs şablondaki '(statik proje kontrolü)')
+    // — bu durumda bolumeEkle {hata:'bolum-yok'} döner (YARATMAZ), UI uyarı gösterir (plan sözleşmesi).
+    const KATMAN_BOLUM_BASLIK = {
+      teknik: '### 🔧 Teknik (statik proje kontrolü)',
+      metraj: '### 📐 Metraj / Keşif',
+      ticari: '### 💰 Ticari (teklif / maliyet)',
+      hukuki: '### 📄 Hukuki (sözleşme)',
+      sure: '### 📅 Süre / Termin',
+      finans: '### 💵 Finans / Tahsilat',
+      ruhsat: '### 📋 Ruhsat / Resmi süreç',
+      saha: '### 🏗️ Saha / Uygulama',
+    };
+
+    // bolumIcerigiOnekIleOku(metin, baslikOneki) → string|null — metindeki (herhangi seviyede)
+    // İLK başlık satırı `baslikOneki` ile (trim edilmiş haliyle) BAŞLIYORSA, o başlığın içeriğini
+    // (bir sonraki başlığa/dosya sonuna kadar, kırpılmış) döner. Hem tam eşleşme (ör.
+    // '### 📅 Süre / Termin') hem önek eşleşmesi (ör. '## 📊' → değişken sonlu gerçek başlıklar)
+    // için kullanılır — panel özet gösterimi + termin tarama ortak alt yapısı.
+    function bolumIcerigiOnekIleOku(metin, baslikOneki) {
+      const baslikRe = /(^|\r?\n)(#{1,6}[ \t][^\r\n]*)/g;
+      const basliklar = [];
+      let m;
+      while ((m = baslikRe.exec(metin))) {
+        basliklar.push({ index: m.index + m[1].length, satir: m[2] });
+      }
+      const i = basliklar.findIndex((b) => b.satir.trim().startsWith(baslikOneki));
+      if (i === -1) return null;
+      const icerikBaslangic = basliklar[i].index + basliklar[i].satir.length;
+      const icerikBitis = i + 1 < basliklar.length ? basliklar[i + 1].index : metin.length;
+      return metin.slice(icerikBaslangic, icerikBitis).replace(/^[\r\n]+/, '').replace(/[ \t\r\n]+$/, '');
+    }
+
+    // terminSatirlariAyristir(bolumIcerik) → [{etiket, tarih, yapildi, not, ham}]
+    function terminSatirlariAyristir(bolumIcerik) {
+      const sonuc = [];
+      for (const s of String(bolumIcerik || '').split(/\r?\n/)) {
+        const ham = s.trim();
+        const m = /^-\s*(✓\s*)?(.+?):\s*(\d{4}-\d{2}-\d{2})(?:\s*·\s*(.*))?$/.exec(ham);
+        if (!m) continue;
+        sonuc.push({ etiket: m[2].trim(), tarih: m[3], yapildi: !!m[1], not: (m[4] || '').trim(), ham });
+      }
+      return sonuc;
+    }
+    // terminSatiriYapildi(metin, hamSatir) — '- etiket…' satırını '- ✓ etiket…' yapar.
+    function terminSatiriYapildi(metin, hamSatir) {
+      if (/^-\s*✓/.test(hamSatir)) return { hata: 'satir-yok' };
+      const idx = metin.indexOf(hamSatir);
+      if (idx === -1) return { hata: 'satir-yok' };
+      const yeni = hamSatir.replace(/^-\s*/, '- ✓ ');
+      return metin.slice(0, idx) + yeni + metin.slice(idx + hamSatir.length);
+    }
+    const TERMIN_ONERI_TEMEL = ['statik teslim', 'mimari teslim', 'ruhsat başvuru', 'revizyon', 'teklif'];
+    const TERMIN_ONERI_SAHA = ['kaba inşaat', 'ince iş', 'iskan', 'hakediş'];
+    function terminOnerileri(katmanlar) {
+      const k = Array.isArray(katmanlar) ? katmanlar : [];
+      return k.includes('saha') || k.includes('finans') ? TERMIN_ONERI_TEMEL.concat(TERMIN_ONERI_SAHA) : TERMIN_ONERI_TEMEL.slice();
+    }
+    function enYakinGelecekTarihBul(metin, bugun) {
+      const bugunStr = bugun instanceof Date ? bugun.toISOString().slice(0, 10) : String(bugun).slice(0, 10);
+      const gelecekler = terminSatirlariAyristir(metin).filter((t) => !t.yapildi && t.tarih >= bugunStr).map((t) => t.tarih);
+      if (!gelecekler.length) return null;
+      return gelecekler.reduce((en, t) => (t < en ? t : en));
+    }
+
+    // tutarAyristir(girdi) → number (geçersizse NaN) — TR biçim (binlik nokta, ondalık virgül,
+    // ör. '1.837.188,61') VEYA düz/EN biçim (ör. '1837188.61', '1837188,61') kabul eder.
+    function tutarAyristir(girdi) {
+      let s = String(girdi == null ? '' : girdi).trim();
+      if (!s) return NaN;
+      if (/^\d{1,3}(\.\d{3})+,\d+$/.test(s) || /^\d{1,3}(\.\d{3})+$/.test(s)) {
+        s = s.replace(/\./g, '').replace(',', '.');
+      } else if (/^\d+,\d+$/.test(s)) {
+        s = s.replace(',', '.');
+      }
+      return Number(s);
+    }
+
+    // tlBicimle(n) → '1.837.188,61' — TR biçimi (binlik nokta, ondalık virgül, 2 basamak).
+    function tlBicimle(n) {
+      return Number(n).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // --- BEKLENEN finans modeli (Sinaps Paketi, spec §3) ---
+    function beklenenSatirUret(tutar, aciklama, tarihYMD) {
+      return '- BEKLENEN: ' + tlBicimle(tutar) + ' TL · ' + aciklama + ' · tarih: ' + (tarihYMD || 'belirsiz');
+    }
+    // finansToplamlari(bolumIcerik) → {alinan, beklenen} — satırlar kaynak-gerçek; fm alanları türev.
+    function finansToplamlari(bolumIcerik) {
+      const toplam = { alinan: 0, beklenen: 0 };
+      for (const satir of String(bolumIcerik || '').split(/\r?\n/)) {
+        const m = /^-\s.*?\b(ALINAN|BEKLENEN):\s*([\d.,]+)\s*TL/.exec(satir);
+        if (!m) continue;
+        const t = tutarAyristir(m[2]);
+        if (!Number.isFinite(t)) continue;
+        if (m[1] === 'ALINAN') toplam.alinan += t; else toplam.beklenen += t;
+      }
+      return toplam;
+    }
+    // beklenenTahsilEt(metin, beklenenSatirHam, bugunYMD) — BEKLENEN satırını siler, yerine
+    // bugünkü ALINAN satırını yazar (açıklama + ' (beklenenden)'). Satır bulunamazsa {hata}.
+    function beklenenTahsilEt(metin, beklenenSatirHam, bugunYMD) {
+      const m = /^-\s*BEKLENEN:\s*([\d.,]+)\s*TL\s*·\s*(.*?)\s*·\s*tarih:.*$/.exec(beklenenSatirHam);
+      const idx = metin.indexOf(beklenenSatirHam);
+      if (!m || idx === -1) return { hata: 'satir-yok' };
+      const yeni = '- ' + bugunYMD + ' · ALINAN: ' + m[1] + ' TL · ' + m[2] + ' (beklenenden)';
+      return metin.slice(0, idx) + yeni + metin.slice(idx + beklenenSatirHam.length);
+    }
+
+    // dosyaSonunaSatirEkle(metin, satir) → metin — dosya SONUNA (mevcut son satırdan sonra, EOL
+    // korunarak) tek satır ekler. INBOX yakalama + TAMAMLANAN_ISLER append + arayuz-gunlugu için
+    // ortak birincil yardımcı (Iron Rule: UI'nin kendi ad-hoc string-ekleme mantığı OLMAMALI).
+    function dosyaSonunaSatirEkle(metin, satir) {
+      const eol = metin.includes('\r\n') ? '\r\n' : '\n';
+      const biter = metin.length === 0 || metin.endsWith(eol);
+      return metin + (biter ? '' : eol) + satir + eol;
+    }
+
+    // "## 📌 DİKKAT" bölümünün [icerikStart, sectionEnd) aralığı — başlıktan hemen sonraki
+    // italik açıklama satırı (varsa) korunur, madde listesi bu satırdan SONRA başlar.
+    function dikkatSinirlariBul(anaSayfa) {
+      const re = /(^|\r?\n)(## 📌 DİKKAT[^\r\n]*)(\r?\n|$)/;
+      const m = re.exec(anaSayfa);
+      if (!m) return null;
+      const baslikSonrasi = m.index + m[0].length;
+      const kalan = anaSayfa.slice(baslikSonrasi);
+      const italikM = /^\*[^\r\n]*\*(\r?\n|$)/.exec(kalan);
+      const icerikStart = italikM ? baslikSonrasi + italikM[0].length : baslikSonrasi;
+      const kalan2 = anaSayfa.slice(icerikStart);
+      const sonrakiBaslikRe = /(^|\r?\n)#{1,6}[ \t]/;
+      const nm = sonrakiBaslikRe.exec(kalan2);
+      const sectionEnd = nm ? icerikStart + nm.index : anaSayfa.length;
+      return { icerikStart, sectionEnd };
+    }
+
+    // dikkatOku(anaSayfa) → maddeler[] — "- " ile başlayan satırlar, önek kırpılmış olarak.
+    function dikkatOku(anaSayfa) {
+      const sinir = dikkatSinirlariBul(anaSayfa);
+      if (!sinir) return [];
+      const icerik = anaSayfa.slice(sinir.icerikStart, sinir.sectionEnd);
+      return icerik.split(/\r?\n/).filter((s) => s.startsWith('- ')).map((s) => s.slice(2));
+    }
+
+    // dikkatYaz(anaSayfa, maddeler) → icerik — madde listesini "- " önekiyle yeniden yazar;
+    // başlık + italik satır + bölüm dışı her şey değişmez (dikkatOku ile round-trip idempotent).
+    function dikkatYaz(anaSayfa, maddeler) {
+      const sinir = dikkatSinirlariBul(anaSayfa);
+      if (!sinir) return anaSayfa;
+      const eol = anaSayfa.includes('\r\n') ? '\r\n' : '\n';
+      const icerik = maddeler.length ? maddeler.map((m) => '- ' + m).join(eol) + eol : '';
+      return anaSayfa.slice(0, sinir.icerikStart) + icerik + anaSayfa.slice(sinir.sectionEnd);
+    }
+
+    // --- T1A (Orhan tur-1: ✏️ düzenle + ✕ sil) — finans/termin satırı silme/değiştirme ---
+
+    // satirSil(metin, hamSatir) → metin | {hata:'satir-yok'} — satırı EOL'üyle birlikte kaldırır.
+    function satirSil(metin, hamSatir) {
+      const idx = metin.indexOf(hamSatir);
+      if (idx === -1) return { hata: 'satir-yok' };
+      let son = idx + hamSatir.length;
+      if (metin.startsWith('\r\n', son)) son += 2; else if (metin.startsWith('\n', son)) son += 1;
+      return metin.slice(0, idx) + metin.slice(son);
+    }
+    // satirDegistir(metin, eskiHam, yeniSatir) → metin | {hata:'satir-yok'}
+    function satirDegistir(metin, eskiHam, yeniSatir) {
+      const idx = metin.indexOf(eskiHam);
+      if (idx === -1) return { hata: 'satir-yok' };
+      return metin.slice(0, idx) + yeniSatir + metin.slice(idx + eskiHam.length);
+    }
+    // finansSatirAyristir(ham) → {tip:'ALINAN'|'BEKLENEN', tarih|null, tutar:number, aciklama, beklenenTarih|null} | null
+    function finansSatirAyristir(ham) {
+      let m = /^-\s*(\d{4}-\d{2}-\d{2})\s*·\s*ALINAN:\s*([\d.,]+)\s*TL\s*·\s*(.*)$/.exec(ham);
+      if (m) return { tip: 'ALINAN', tarih: m[1], tutar: tutarAyristir(m[2]), aciklama: m[3].trim(), beklenenTarih: null };
+      m = /^-\s*BEKLENEN:\s*([\d.,]+)\s*TL\s*·\s*(.*?)\s*·\s*tarih:\s*(\S+)\s*$/.exec(ham);
+      if (m) return { tip: 'BEKLENEN', tarih: null, tutar: tutarAyristir(m[1]), aciklama: m[2].trim(), beklenenTarih: /^\d{4}-\d{2}-\d{2}$/.test(m[3]) ? m[3] : null };
+      return null;
+    }
+
+    // kacEt(s) → HTML-kaçışlı dize — Görev 5 UI şablonlarında kullanılacak (bkz. mobil-g5-brief.md,
+    // "kacEt (masaüstünden kopya — Görev 1 ORTAK listesine ekle)"). Masaüstü sürümü
+    // tarayıcının DOM köküne (createElement) dayanır; bu SAF blokta o küresel isimler YASAK olduğundan
+    // BİREBİR KOPYALANAMAZ. Burada saf string-tabanlı bir eşdeğeri var: masaüstünün
+    // textContent→innerHTML kaçış kapsamıyla AYNI — &, <, > kaçışlanır; tırnak/apostrof
+    // kaçışlanmaz. Kaynak metni masaüstünden kaçınılmaz biçimde farklı olduğundan drift testi
+    // kaynak-eşitliği yerine davranış-sözleşmesiyle kilitlenir (bkz. mobil-drift.test.js).
+    function kacEt(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    // [SAF-SON:mobil-veri]
+
+    // [SAF-BASLA:mobil-islem]
+    // islem-tarifi motoru — TÜM mobil yazmaların (canlı + çevrimdışı kuyruk) geçtiği TEK saf
+    // yol (Görev 2, mobil-g2-brief.md). Girdi: icerik (hedef dosyanın tam metni) + islem
+    // (tip ayrımlı obje — tarih/rastgelelik HER ZAMAN islem.bugun/tarih parametresiyle gelir,
+    // bu blokta da küresel tarayıcı nesneleri (DOM kökü, pencere) ile zaman/rastgelelik
+    // üreten yerleşik çağrılar YASAK — mobil-global.md).
+    // Çıktı: {icerik, ozet} (başarı) | {hata, mesaj} (hata — icerik alanı YOKTUR, çağıran
+    // orijinal içeriği korur). Matematik masaüstü yazıcılarından (beyin-arayuz.html
+    // tahsilatKaydet/terminKaydet/beklenenTahsilKaydet/terminYapildiKaydet/
+    // finansSatirSilKaydet/terminSatirSilKaydet/finansSatirDegistirKaydet/
+    // terminSatirDegistirKaydet) BİREBİR taşınmıştır (bu blok mobil-veri'nin ORTAK
+    // fonksiyonlarını tüketir — kendi fm/bölüm ayrıştırma mantığı YOK).
+
+    const MOBIL_FINANS_BASLIK = '### 💵 Finans / Tahsilat';
+    const MOBIL_TERMIN_BASLIK = '### 📅 Süre / Termin';
+
+    // Tutar hem sayı hem TR/EN biçimli dize olarak gelebilir (mobil form ↔ kuyruk taşıma).
+    function islemTutarNormalize(deger) {
+      return typeof deger === 'number' ? deger : tutarAyristir(deger);
+    }
+
+    // beklenen-toplam her finans yazmasından sonra bölüm-satırlarından YENİDEN hesaplanır
+    // (öz-onarım) — masaüstü yazıcılarının hepsinde ortak son adım.
+    function finansBeklenenYenile(sonuc) {
+      const toplamlar = finansToplamlari(bolumIcerigiOnekIleOku(sonuc, '### 💵') || '');
+      return fmAlanYaz(sonuc, 'beklenen-toplam', toplamlar.beklenen > 0 ? toplamlar.beklenen : null);
+    }
+
+    // sonraki-termin/termin-etiket — kalan (✓ hariç) en yakın gelecek tarihe göre yeniden
+    // hesaplanır (termin-yapildi/satir-sil/satir-degistir ortak son adımı; 'termin' EKLEME
+    // işlemi masaüstünde farklı davranır — bkz. aşağıdaki 'termin' dalı).
+    function terminHesaplariYenile(sonuc, bugun) {
+      const icerik = bolumIcerigiOnekIleOku(sonuc, '### 📅') || '';
+      const enYakin = enYakinGelecekTarihBul(icerik, bugun);
+      const etiketler = terminSatirlariAyristir(icerik).filter((t) => !t.yapildi && t.tarih === enYakin);
+      sonuc = fmAlanYaz(sonuc, 'sonraki-termin', enYakin);
+      return fmAlanYaz(sonuc, 'termin-etiket', etiketler.length ? etiketler[0].etiket : null);
+    }
+
+    function islemUygula(icerik, islem) {
+      const tip = islem && islem.tip;
+      switch (tip) {
+        case 'tahsilat': {
+          const tutar = islemTutarNormalize(islem.tutar);
+          if (!Number.isFinite(tutar) || tutar <= 0) return { hata: 'gecersiz-tutar', mesaj: 'Geçerli bir tutar girin (ör. 1.837.188,61).' };
+          const satir = '- ' + islem.bugun + ' · ALINAN: ' + tlBicimle(tutar) + ' TL · ' + islem.aciklama;
+          let sonuc = bolumeEkleYoksaAc(icerik, MOBIL_FINANS_BASLIK, satir);
+          const { fm } = fmOku(icerik);
+          sonuc = fmAlanYaz(sonuc, 'alinan-toplam', (Number(fm && fm['alinan-toplam']) || 0) + tutar);
+          sonuc = finansBeklenenYenile(sonuc);
+          return { icerik: sonuc, ozet: 'tahsilat ' + tlBicimle(tutar) + ' TL · ' + islem.aciklama };
+        }
+        case 'beklenen': {
+          const tutar = islemTutarNormalize(islem.tutar);
+          if (!Number.isFinite(tutar) || tutar <= 0) return { hata: 'gecersiz-tutar', mesaj: 'Geçerli bir tutar girin (ör. 1.837.188,61).' };
+          const satir = beklenenSatirUret(tutar, islem.aciklama, islem.tarih || null);
+          let sonuc = bolumeEkleYoksaAc(icerik, MOBIL_FINANS_BASLIK, satir);
+          sonuc = finansBeklenenYenile(sonuc);
+          return { icerik: sonuc, ozet: 'beklenen ' + tlBicimle(tutar) + ' TL · ' + islem.aciklama };
+        }
+        case 'tahsil-et': {
+          let sonuc = beklenenTahsilEt(icerik, islem.ham, islem.bugun);
+          if (sonuc && sonuc.hata) return { hata: 'satir-yok', mesaj: 'BEKLENEN satırı bulunamadı (kart elle mi değişti?)' };
+          const m = /BEKLENEN:\s*([\d.,]+)\s*TL/.exec(islem.ham);
+          const tutar = tutarAyristir(m ? m[1] : '');
+          const { fm } = fmOku(icerik);
+          sonuc = fmAlanYaz(sonuc, 'alinan-toplam', (Number(fm && fm['alinan-toplam']) || 0) + (Number.isFinite(tutar) ? tutar : 0));
+          sonuc = finansBeklenenYenile(sonuc);
+          const bilgi = finansSatirAyristir(islem.ham);
+          return { icerik: sonuc, ozet: 'tahsil edildi' + (bilgi ? ' ' + tlBicimle(bilgi.tutar) + ' TL · ' + bilgi.aciklama : '') };
+        }
+        case 'termin': {
+          if (!islem.etiket || !/^\d{4}-\d{2}-\d{2}$/.test(islem.tarih) || !/^\d{4}-\d{2}-\d{2}$/.test(islem.bugun)) {
+            return { hata: 'gecersiz-girdi', mesaj: 'Etiket + geçerli bir tarih girin.' };
+          }
+          const satir = '- ' + islem.etiket + ': ' + islem.tarih;
+          let sonuc = bolumeEkleYoksaAc(icerik, MOBIL_TERMIN_BASLIK, satir);
+          const bolumIcerik = bolumIcerigiOnekIleOku(sonuc, '### 📅') || '';
+          const enYakin = enYakinGelecekTarihBul(bolumIcerik, islem.bugun);
+          sonuc = fmAlanYaz(sonuc, 'sonraki-termin', enYakin);
+          sonuc = fmAlanYaz(sonuc, 'termin-etiket', enYakin ? islem.etiket : null);
+          return { icerik: sonuc, ozet: 'termin: ' + islem.etiket + ' · ' + islem.tarih };
+        }
+        case 'termin-yapildi': {
+          let sonuc = terminSatiriYapildi(icerik, islem.ham);
+          if (sonuc && sonuc.hata) return { hata: 'satir-yok', mesaj: 'Termin satırı bulunamadı (kart elle mi değişti?)' };
+          sonuc = terminHesaplariYenile(sonuc, islem.bugun);
+          const parsed = terminSatirlariAyristir(islem.ham)[0];
+          return { icerik: sonuc, ozet: 'termin ✓ yapıldı' + (parsed ? ': ' + parsed.etiket : '') };
+        }
+        case 'satir-sil': {
+          if (islem.bolum === 'inbox') {
+            const sonuc = satirSil(icerik, islem.ham);
+            if (sonuc && sonuc.hata) return { hata: 'satir-yok', mesaj: 'Satır bulunamadı (INBOX elle mi değişti?)' };
+            return { icerik: sonuc, ozet: 'INBOX satırı silindi' };
+          }
+          if (islem.bolum === 'finans') {
+            let sonuc = satirSil(icerik, islem.ham);
+            if (sonuc && sonuc.hata) return { hata: 'satir-yok', mesaj: 'Satır bulunamadı (kart elle mi değişti?)' };
+            const bilgi = finansSatirAyristir(islem.ham);
+            if (bilgi && bilgi.tip === 'ALINAN' && Number.isFinite(bilgi.tutar)) {
+              const { fm } = fmOku(icerik);
+              sonuc = fmAlanYaz(sonuc, 'alinan-toplam', Math.max(0, (Number(fm && fm['alinan-toplam']) || 0) - bilgi.tutar) || null);
+            }
+            sonuc = finansBeklenenYenile(sonuc);
+            return { icerik: sonuc, ozet: 'finans satırı silindi' };
+          }
+          if (islem.bolum === 'termin') {
+            let sonuc = satirSil(icerik, islem.ham);
+            if (sonuc && sonuc.hata) return { hata: 'satir-yok', mesaj: 'Satır bulunamadı (kart elle mi değişti?)' };
+            sonuc = terminHesaplariYenile(sonuc, islem.bugun);
+            return { icerik: sonuc, ozet: 'termin satırı silindi' };
+          }
+          return { hata: 'bilinmeyen-bolum', mesaj: 'Bilinmeyen bölüm: ' + islem.bolum };
+        }
+        case 'satir-degistir': {
+          const girdiler = islem.girdiler || {};
+          if (islem.bolum === 'finans') {
+            const eskiBilgi = finansSatirAyristir(islem.eskiHam);
+            const tutar = islemTutarNormalize(girdiler.tutar);
+            const yeniSatir = girdiler.beklenenMi
+              ? beklenenSatirUret(tutar, girdiler.aciklama, girdiler.beklenenTarih || null)
+              : '- ' + ((eskiBilgi && eskiBilgi.tarih) || islem.bugun) + ' · ALINAN: ' + tlBicimle(tutar) + ' TL · ' + girdiler.aciklama;
+            let sonuc = satirDegistir(icerik, islem.eskiHam, yeniSatir);
+            if (sonuc && sonuc.hata) return { hata: 'satir-yok', mesaj: 'Satır bulunamadı (kart elle mi değişti?)' };
+            const { fm } = fmOku(icerik);
+            let alinanToplam = Number(fm && fm['alinan-toplam']) || 0;
+            if (eskiBilgi && eskiBilgi.tip === 'ALINAN' && Number.isFinite(eskiBilgi.tutar)) alinanToplam -= eskiBilgi.tutar;
+            if (!girdiler.beklenenMi && Number.isFinite(tutar)) alinanToplam += tutar;
+            sonuc = fmAlanYaz(sonuc, 'alinan-toplam', Math.max(0, alinanToplam) || null);
+            sonuc = finansBeklenenYenile(sonuc);
+            return { icerik: sonuc, ozet: 'finans satırı güncellendi' };
+          }
+          if (islem.bolum === 'termin') {
+            const yapildiMi = /^-\s*✓/.test(islem.eskiHam);
+            const yeniSatir = '- ' + (yapildiMi ? '✓ ' : '') + girdiler.etiket + ': ' + girdiler.tarihYMD + (girdiler.not ? ' · ' + girdiler.not : '');
+            let sonuc = satirDegistir(icerik, islem.eskiHam, yeniSatir);
+            if (sonuc && sonuc.hata) return { hata: 'satir-yok', mesaj: 'Satır bulunamadı (kart elle mi değişti?)' };
+            sonuc = terminHesaplariYenile(sonuc, islem.bugun);
+            return { icerik: sonuc, ozet: 'termin satırı güncellendi' };
+          }
+          return { hata: 'bilinmeyen-bolum', mesaj: 'Bilinmeyen bölüm: ' + islem.bolum };
+        }
+        case 'durum': {
+          if (islem.durum === 'bitti' || islem.durum === 'arsiv') {
+            return { hata: 'durum-yasak', mesaj: "'bitti'/'arsiv' mobil sürümde desteklenmiyor — masaüstünden yapın." };
+          }
+          if (SABITLER.DURUMLAR.indexOf(islem.durum) === -1) {
+            return { hata: 'gecersiz-durum', mesaj: 'Geçersiz durum: ' + islem.durum };
+          }
+          let sonuc = fmAlanYaz(icerik, 'durum', islem.durum);
+          sonuc = fmAlanYaz(sonuc, 'durum-ozet', islem.ozet);
+          sonuc = fmAlanYaz(sonuc, 'guncelleme', islem.bugun);
+          return { icerik: sonuc, ozet: 'durum: ' + (SABITLER.DURUM_ETIKET[islem.durum] || islem.durum) };
+        }
+        case 'inbox-yakala': {
+          const satir = '- ' + islem.bugun + ' (mobil): ' + islem.metin;
+          const sonuc = dosyaSonunaSatirEkle(icerik, satir);
+          return { icerik: sonuc, ozet: 'INBOX: ' + islem.metin };
+        }
+        case 'dikkat-ekle': {
+          const sonuc = dikkatYaz(icerik, dikkatOku(icerik).concat([islem.metin]));
+          return { icerik: sonuc, ozet: 'dikkat eklendi: ' + islem.metin };
+        }
+        case 'dikkat-bitir': {
+          const maddeler = dikkatOku(icerik);
+          if (!(islem.index >= 0 && islem.index < maddeler.length)) {
+            return { hata: 'index-yok', mesaj: 'Dikkat maddesi bulunamadı.' };
+          }
+          if (!maddeler[islem.index].startsWith('✅ ')) maddeler[islem.index] = '✅ ' + maddeler[islem.index];
+          const sonuc = dikkatYaz(icerik, maddeler);
+          return { icerik: sonuc, ozet: 'dikkat ✓ bitti: ' + maddeler[islem.index].slice(2) };
+        }
+        default:
+          return { hata: 'bilinmeyen-islem', mesaj: 'Bilinmeyen işlem tipi: ' + tip };
+      }
+    }
+
+    // islemIdempotentMi(icerik, islem) → bool — çift-gönderim koruması (spec §5): ekleme-tipi
+    // işlemlerin üreteceği satır icerikte ZATEN varsa true. Ekleme-tipi OLMAYAN işlemler
+    // (durum/satir-sil/satir-degistir/tahsil-et/termin-yapildi/dikkat-bitir) her zaman false
+    // döner — bunların idempotensi kuyruk katmanında ayrı ele alınır (satır zaten yoksa
+    // islemUygula zaten {hata:'satir-yok'} döner, tekrar denemez).
+    function islemIdempotentMi(icerik, islem) {
+      const tip = islem && islem.tip;
+      switch (tip) {
+        case 'tahsilat': {
+          const tutar = islemTutarNormalize(islem.tutar);
+          if (!Number.isFinite(tutar)) return false;
+          const satir = '- ' + islem.bugun + ' · ALINAN: ' + tlBicimle(tutar) + ' TL · ' + islem.aciklama;
+          return icerik.indexOf(satir) !== -1;
+        }
+        case 'beklenen': {
+          const tutar = islemTutarNormalize(islem.tutar);
+          if (!Number.isFinite(tutar)) return false;
+          const satir = beklenenSatirUret(tutar, islem.aciklama, islem.tarih || null);
+          return icerik.indexOf(satir) !== -1;
+        }
+        case 'termin': {
+          if (!islem.etiket || !islem.tarih) return false;
+          const satir = '- ' + islem.etiket + ': ' + islem.tarih;
+          return icerik.indexOf(satir) !== -1;
+        }
+        case 'inbox-yakala': {
+          if (!islem.bugun || !islem.metin) return false;
+          const satir = '- ' + islem.bugun + ' (mobil): ' + islem.metin;
+          return icerik.indexOf(satir) !== -1;
+        }
+        case 'dikkat-ekle': {
+          if (!islem.metin) return false;
+          return dikkatOku(icerik).indexOf(islem.metin) !== -1;
+        }
+        default:
+          return false;
+      }
+    }
+    // [SAF-SON:mobil-islem]
+
+    // [SAF-BASLA:mobil-kripto]
+    // PİN kilidi — GitHub token'ı cihazda AES-GCM ile şifreli tutmak için (mobil-global.md:
+    // "Kabukta sır YOK; anahtar yalnız cihazda AES-GCM şifreli"). Enjekte-tasarım: her fonksiyon
+    // `kripto` (SubtleCrypto) alır ilk parametre olarak — tarayıcıda çağıran (Görev 5) crypto.subtle
+    // geçirir, testte node:crypto webcrypto.subtle. tokenSifrele ayrıca `rastgele` (getRandomValues
+    // işlevi) alır — determinizm testleri sabit salt/iv enjekte edebilsin diye (tarayıcıda
+    // crypto.getRandomValues.bind(crypto)). Bu blokta zaman/rastgelelik ÜRETEN yasaklı yerleşik
+    // çağrı YOK (mobil-global.md yasak listesi) — rastgelelik yalnız enjekte edilen `rastgele` ile gelir
+    // (crypto.getRandomValues SERBEST istisnası mobil-global.md'de tanımlı, ama biz onu bile
+    // burada DOĞRUDAN çağırmıyoruz — enjekte parametre üzerinden alıyoruz, saflığı güçlendirir.
+    // Zaman/rastgelelik üreten diğer yerleşik çağrılar (mobil-global.md'nin yasak listesi) da yok.
+
+    const B64_ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+    // baytB64(Uint8Array) → string — standart base64 (btoa/Buffer YOK, ortamdan bağımsız).
+    function baytB64(bayt) {
+      let sonuc = '';
+      for (let i = 0; i < bayt.length; i += 3) {
+        const b0 = bayt[i], b1 = bayt[i + 1], b2 = bayt[i + 2];
+        const varB1 = i + 1 < bayt.length, varB2 = i + 2 < bayt.length;
+        sonuc += B64_ABC[b0 >> 2];
+        sonuc += B64_ABC[((b0 & 3) << 4) | (varB1 ? (b1 >> 4) : 0)];
+        sonuc += varB1 ? B64_ABC[((b1 & 15) << 2) | (varB2 ? (b2 >> 6) : 0)] : '=';
+        sonuc += varB2 ? B64_ABC[b2 & 63] : '=';
+      }
+      return sonuc;
+    }
+
+    // b64Bayt(string) → Uint8Array — baytB64'ün tersi.
+    function b64Bayt(s) {
+      const temiz = String(s || '').replace(/=+$/, '');
+      const bayt = [];
+      let bits = 0, deger = 0;
+      for (let i = 0; i < temiz.length; i++) {
+        const idx = B64_ABC.indexOf(temiz[i]);
+        if (idx === -1) continue;
+        deger = (deger << 6) | idx;
+        bits += 6;
+        if (bits >= 8) {
+          bits -= 8;
+          bayt.push((deger >> bits) & 0xff);
+        }
+      }
+      return new Uint8Array(bayt);
+    }
+
+    // pinAnahtarTuret(kripto, pin, saltB64) → CryptoKey (AES-GCM 256) — PBKDF2 SHA-256, 310000 iter.
+    async function pinAnahtarTuret(kripto, pin, saltB64) {
+      const temelAnahtar = await kripto.importKey(
+        'raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey']
+      );
+      return kripto.deriveKey(
+        { name: 'PBKDF2', salt: b64Bayt(saltB64), iterations: 310000, hash: 'SHA-256' },
+        temelAnahtar,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    }
+
+    // tokenSifrele(kripto, rastgele, pin, token) → {saltB64, ivB64, veriB64} — salt 16 bayt, iv 12 bayt.
+    async function tokenSifrele(kripto, rastgele, pin, token) {
+      const salt = rastgele(new Uint8Array(16));
+      const iv = rastgele(new Uint8Array(12));
+      const anahtar = await pinAnahtarTuret(kripto, pin, baytB64(salt));
+      const sifreliBuffer = await kripto.encrypt(
+        { name: 'AES-GCM', iv }, anahtar, new TextEncoder().encode(token)
+      );
+      return {
+        saltB64: baytB64(salt),
+        ivB64: baytB64(iv),
+        veriB64: baytB64(new Uint8Array(sifreliBuffer)),
+      };
+    }
+
+    // tokenCoz(kripto, pin, paket) → token string (doğru PİN) | null (yanlış PİN — GCM bütünlük
+    // hatası burada yakalanır, dışa ASLA fırlatılmaz).
+    async function tokenCoz(kripto, pin, paket) {
+      try {
+        const anahtar = await pinAnahtarTuret(kripto, pin, paket.saltB64);
+        const duzMetinBuffer = await kripto.decrypt(
+          { name: 'AES-GCM', iv: b64Bayt(paket.ivB64) }, anahtar, b64Bayt(paket.veriB64)
+        );
+        return new TextDecoder().decode(duzMetinBuffer);
+      } catch (e) {
+        return null;
+      }
+    }
+    // [SAF-SON:mobil-kripto]
+
+    // [SAF-BASLA:mobil-gh]
+    // GitHub Contents API istemcisi — fetch-enjekteli fabrika (Görev 4, mobil-g4-brief.md).
+    // ghIstemci(fetchFn, token, repo) → {oku, listele, yaz}. Kabukta sır YOK (mobil-global.md);
+    // token yalnız çağıran tarafından (PİN ile çözülmüş, bellekte) enjekte edilir, bu blok onu
+    // saklamaz. Bu blokta çıplak `fetch` çağrısı YASAK — yalnız enjekte edilen `fetchFn`
+    // kullanılır (tarayıcı katmanı [Görev 5] küresel ağ çağırma işlevini bağlı geçirir,
+    // testte sahte fetch).
+    // UTF-8 güvenli base64: mobil-kripto bloğundaki saf baytB64/b64Bayt yardımcıları + TextEncoder/
+    // TextDecoder (ortamdan bağımsız — Node 18'de btoa/atob'a gerek YOK).
+
+    // utf8B64Encode(string) → base64 — dosya içeriğini GitHub'a yazarken kullanılır.
+    function utf8B64Encode(s) {
+      return baytB64(new TextEncoder().encode(s));
+    }
+    // utf8B64Decode(b64) → string — GitHub'ın 60-karakter satırlara böldüğü b64'ü (satır-arası
+    // boşluk/yenisatır STRIP edilerek) UTF-8 dizgeye çözer.
+    function utf8B64Decode(b64) {
+      const temiz = String(b64 || '').replace(/\s+/g, '');
+      return new TextDecoder().decode(b64Bayt(temiz));
+    }
+
+    function ghIstemci(fetchFn, token, repo) {
+      const kok = 'https://api.github.com/repos/' + repo + '/contents/';
+      const baslikOrtak = { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' };
+
+      // oku(yol) → {icerik, sha} | {yok:true} (404) | {hata:'ag', durum} (diğer HTTP hataları)
+      async function oku(yol) {
+        const yanit = await fetchFn(kok + yol, { headers: baslikOrtak });
+        if (yanit.status === 404) return { yok: true };
+        if (!yanit.ok) return { hata: 'ag', durum: yanit.status };
+        const veri = await yanit.json();
+        return { icerik: utf8B64Decode(veri.content), sha: veri.sha };
+      }
+
+      // listele(dizin) → [{ad, yol}] (başarı) | {hata:'ag', durum} (HTTP hataları) — yalnız
+      // type==='file' olanlar (.md filtreli DEĞİL — çağıran filtreler). oku ile aynı {hata}
+      // sözleşmesi — HTTP hatası boş dizi görünmez (imkansız tanı).
+      async function listele(dizin) {
+        const yanit = await fetchFn(kok + dizin, { headers: baslikOrtak });
+        if (!yanit.ok) return { hata: 'ag', durum: yanit.status };
+        const veri = await yanit.json();
+        return veri.filter((g) => g.type === 'file').map((g) => ({ ad: g.name, yol: g.path }));
+      }
+
+      // yaz(yol, islem, denemeler=3) → {ok:true, atlandi?:true} | {hata, mesaj?, durum?}
+      // Akış: oku → idempotent mi? atla : islemUygula → hata? döndür : PUT (sha ile).
+      // 409/422 (sha uyuşmazlığı) → taze oku + FRESH içerik üzerine yeniden uygula (maks denemeler
+      // deneme); tükenirse {hata:'cakisma'}. Hedef dosya yoksa (404) boş içerikle başlanır, PUT
+      // sha'sız gider (GitHub yeni dosya oluşturur).
+      async function yaz(yol, islem, denemeler) {
+        if (denemeler === undefined) denemeler = 3;
+        let mevcut = await oku(yol);
+        if (mevcut.hata) return mevcut;
+        let icerik = mevcut.yok ? '' : mevcut.icerik;
+        let sha = mevcut.yok ? undefined : mevcut.sha;
+
+        for (let deneme = 0; deneme < denemeler; deneme++) {
+          if (islemIdempotentMi(icerik, islem)) return { ok: true, atlandi: true };
+          const sonuc = islemUygula(icerik, islem);
+          if (sonuc.hata) return sonuc;
+
+          const govde = { message: 'mobil: ' + sonuc.ozet, content: utf8B64Encode(sonuc.icerik) };
+          if (sha !== undefined) govde.sha = sha;
+          const yanit = await fetchFn(kok + yol, {
+            method: 'PUT',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, baslikOrtak),
+            body: JSON.stringify(govde),
+          });
+          if (yanit.ok) return { ok: true };
+          if (yanit.status === 409 || yanit.status === 422) {
+            const taze = await oku(yol);
+            if (taze.hata) return taze;
+            icerik = taze.yok ? '' : taze.icerik;
+            sha = taze.yok ? undefined : taze.sha;
+            continue;
+          }
+          return { hata: 'ag', durum: yanit.status };
+        }
+        return { hata: 'cakisma' };
+      }
+
+      return { oku, listele, yaz };
+    }
+    // [SAF-SON:mobil-gh]
+
+    // [SAF-BASLA:mobil-kuyruk]
+    // Çevrimdışı yazma kuyruğu (Görev 6, mobil-g6-brief.md) — kuyruk öğesi {yol, islem, zaman}
+    // biçiminde DOM katmanınca üretilir/saklanır (localStorage 'mobil-kuyruk'); bu blok yalnız
+    // saf sıra-işleme mantığını taşır. mobil-global.md: bu blokta document/window/Date.now/
+    // argümansız new Date/Math.random YASAK — zaman damgası (oge.zaman) HER ZAMAN çağıran
+    // tarafından parametre olarak gelir, bu blok üretmez/okumaz.
+
+    // kuyrukEkle(kuyruk, oge) → yeni dizi — orijinal kuyruk MUTASYONA UĞRAMAZ (concat kullanır).
+    function kuyrukEkle(kuyruk, oge) {
+      return kuyruk.concat([oge]);
+    }
+
+    // kuyrukIsle(kuyruk, uygulaFn) → Promise<{kalan, gonderilen, onayBekleyen}> — SIRALI dener
+    // (paralel DEĞİL — GitHub'a aynı dosyaya art arda yazan işlemler sıra bozulursa çakışabilir).
+    // Her öge için `await uygulaFn(oge)` çağrılır (canlıda ghIstemci.yaz(oge.yol, oge.islem)):
+    //   • {ok:true} veya {ok:true, atlandi:true} → GÖNDERİLDİ, kuyruktan düşer, devam.
+    //   • {hata:'ag'} veya {hata:'cakisma'} (ya da uygulaFn'in kendisi fırlatırsa — fetch ağ
+    //     istisnası) → DURUR; bu öge + işlenmemiş TÜM kalanlar sırayla `kalan`da korunur
+    //     (henüz-denenmemişler DOKUNULMADAN, aynen).
+    //   • Diğer her {hata} (satır-yok sınıfı — islemUygula hedef satırı bulamadı, örn. kart elle
+    //     değişmiş) → İŞLENEMEDİ ama ağ sorunu değil; `{...oge, beklemede:'onay'}` olarak
+    //     işaretlenip `kalan`da TUTULUR, işleme sıradaki ögeyle DEVAM eder (bu ögenin tekrar
+    //     otomatik denenmesi anlamsız — kullanıcı onayı/atlaması gerekir, DOM katmanı modal
+    //     gösterir).
+    // Orijinal `kuyruk` dizisi ve içindeki öge nesneleri MUTASYONA UĞRAMAZ (beklemede
+    // işaretlemesi Object.assign ile YENİ nesne üretir).
+    async function kuyrukIsle(kuyruk, uygulaFn) {
+      const kalan = [];
+      let gonderilen = 0;
+      let onayBekleyen = 0;
+      for (let i = 0; i < kuyruk.length; i++) {
+        const oge = kuyruk[i];
+        let sonuc;
+        try {
+          sonuc = await uygulaFn(oge);
+        } catch (e) {
+          for (let j = i; j < kuyruk.length; j++) kalan.push(kuyruk[j]);
+          return { kalan, gonderilen, onayBekleyen };
+        }
+        if (sonuc && sonuc.ok) {
+          gonderilen++;
+          continue;
+        }
+        if (sonuc && (sonuc.hata === 'ag' || sonuc.hata === 'cakisma')) {
+          for (let j = i; j < kuyruk.length; j++) kalan.push(kuyruk[j]);
+          return { kalan, gonderilen, onayBekleyen };
+        }
+        // satır-yok sınıfı (veya başka herhangi bir iş-mantığı) hatası — ağ sorunu değil,
+        // otomatik yeniden deneme faydasız: işaretle, tut, devam et.
+        kalan.push(Object.assign({}, oge, { beklemede: 'onay' }));
+        onayBekleyen++;
+      }
+      return { kalan, gonderilen, onayBekleyen };
+    }
+    // [SAF-SON:mobil-kuyruk]
+
+    // === DOM katmanı (Görev 5) ===============================================================
+    // SAF bloklardan SONRA, aynı <script> içinde. Burada document/window/localStorage/fetch/
+    // crypto/Date/setTimeout gibi tarayıcı API'leri SERBEST — mobil-global.md'nin SAF-blok
+    // yasakları (document/window/Date.now/argümansız new Date/Math.random) yalnız
+    // [SAF-BASLA:...]…[SAF-SON:...] işaretli bloklar için geçerli.
+    //
+    // kacEt SINIRI (mobil-g5-brief.md handoff notu): kacEt yalnızca &,<,> kaçışlar — HTML
+    // ÖZNİTELİK değeri içine (value="${kacEt(x)}" gibi) gömülürse " ile enjekte edilebilir.
+    // Bu yüzden bu dosyada dinamik içerik ASLA bir öznitelik pozisyonuna interpolasyonla
+    // gömülmez: (a) form alanları DOM API ile (el.value = x) doldurulur, (b) liste satırları
+    // kendi içeriklerini KAPALI (closure) bir dizide tutar, şablonda yalnız kendi ürettiğimiz
+    // GÜVENLİ tamsayı indeksler (data-idx="0","1",…) geçer — kacEt/oznitelikKac hiçbir
+    // özniteliğe gömülmez. kacEt yalnız METİN düğümü pozisyonlarında kullanılır.
+
+    const REPO = 'orhanaydn8/ikinci-beyin';
+    const ANAHTAR_LS = 'mobil-anahtar';
+    // yazKapisi'nin izin verdiği TEK yazma yol deseni (mobil-g5-brief.md handoff notu).
+    const YAZ_YOL_WHITELIST = /^00_Merkez\/(IS_[a-z0-9-]+\.md|INBOX\.md|ANA_SAYFA\.md)$/;
+
+    // bugunYMD() → 'YYYY-MM-DD' — DOM katmanında serbest (SAF bloklara KONMAZ, mobil-g5-brief.md).
+    function bugunYMD() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    // gunFarki(aYMD, bYMD) → a - b gün farkı (UTC gün bazlı, saat dilimi kaymasından bağımsız).
+    function gunFarki(aYMD, bYMD) {
+      const a = Date.UTC.apply(null, aYMD.split('-').map(Number));
+      const b = Date.UTC.apply(null, bYMD.split('-').map(Number));
+      return Math.round((a - b) / 86400000);
+    }
+
+    // terminRenk(tarihYMD, bugun) → CSS renk değişkeni | null — geçmiş kırmızı, ≤7g turuncu.
+    const DURUM_RENK = {
+      aktif: 'var(--yesil)', 'aktif-saha': 'var(--mavi)', beklemede: 'var(--sari)',
+      bitti: 'var(--fg-muted)', arsiv: 'var(--fg-muted)',
+    };
+    function terminRenk(tarihYMD, bugun) {
+      if (!tarihYMD) return null;
+      const fark = gunFarki(tarihYMD, bugun);
+      if (fark < 0) return 'var(--kirmizi)';
+      if (fark <= 7) return 'var(--turuncu)';
+      return null;
+    }
+
+    // Genel uygulama durumu (bellek-içi; token localStorage'a ASLA çözülmüş haliyle yazılmaz).
+    const durum = { istemci: null, token: null, aktifSekme: 'isler', acikKart: null };
+    // Detay ekranının render'lar-arası çalışma verisi (satır dizileri + düzenleme modu index'i).
+    const detayVeri = { finansSatirlar: [], terminSatirlar: [], finansDuzenleIdx: null, terminDuzenleIdx: null };
+
+    // --- Ekran geçişleri --------------------------------------------------------------------
+    function ekranGoster(id) {
+      ['ekran-pin', 'ekran-kurulum', 'ekran-ana', 'ekran-detay'].forEach((eid) => {
+        document.getElementById(eid).hidden = eid !== id;
+      });
+    }
+
+    // --- Toast bildirimi ----------------------------------------------------------------------
+    let toastZamanlayici = null;
+    function toastGoster(mesaj) {
+      const el = document.getElementById('toast');
+      el.textContent = mesaj;
+      el.hidden = false;
+      if (toastZamanlayici) clearTimeout(toastZamanlayici);
+      toastZamanlayici = setTimeout(() => { el.hidden = true; }, 2500);
+    }
+
+    // --- Sayfa-içi onay modalı (native confirm YASAK — brief) ---------------------------------
+    let modalOnayCB = null;
+    function modalOnayGoster(mesaj, cb) {
+      document.getElementById('modal-onay-metin').textContent = mesaj;
+      modalOnayCB = cb;
+      document.getElementById('modal-onay').hidden = false;
+    }
+    function modalOnayGizle() {
+      document.getElementById('modal-onay').hidden = true;
+      modalOnayCB = null;
+    }
+    document.getElementById('modal-onay-evet').addEventListener('click', () => {
+      const cb = modalOnayCB;
+      modalOnayGizle();
+      if (cb) cb();
+    });
+    document.getElementById('modal-onay-vazgec').addEventListener('click', modalOnayGizle);
+
+    // ==========================================================================================
+    // Görev 6: çevrimdışı — yazma kuyruğu (localStorage 'mobil-kuyruk') + okuma önbelleği
+    // (localStorage 'mobil-onbellek') + SW kabuk-önbellek kaydı.
+    // ==========================================================================================
+    const KUYRUK_LS = 'mobil-kuyruk';
+    const ONBELLEK_LS = 'mobil-onbellek';
+
+    // --- Kuyruk depolama (localStorage ↔ dizi) -------------------------------------------------
+    function kuyrukOkuLS() {
+      try {
+        const ham = localStorage.getItem(KUYRUK_LS);
+        const dizi = ham ? JSON.parse(ham) : [];
+        return Array.isArray(dizi) ? dizi : [];
+      } catch (e) { return []; }
+    }
+    function kuyrukYazLS(kuyruk) {
+      localStorage.setItem(KUYRUK_LS, JSON.stringify(kuyruk));
+      rozetGuncelle();
+    }
+
+    // --- Okuma önbelleği (ekran verileri, zaman damgalı) ----------------------------------------
+    function onbellekOkuLS() {
+      try {
+        const ham = localStorage.getItem(ONBELLEK_LS);
+        const obj = ham ? JSON.parse(ham) : null;
+        return (obj && typeof obj === 'object') ? obj : { zaman: null, ekranlar: {} };
+      } catch (e) { return { zaman: null, ekranlar: {} }; }
+    }
+    // ekranAdi: 'isler' | 'inbox' | 'dikkat' (tüm ekran verisini DEĞİŞTİRİR — kart detayı ayrı, bkz. onbellekDetayYaz).
+    function onbellekEkranYaz(ekranAdi, veri) {
+      const onb = onbellekOkuLS();
+      onb.zaman = new Date().toISOString();
+      onb.ekranlar = onb.ekranlar || {};
+      onb.ekranlar[ekranAdi] = veri;
+      localStorage.setItem(ONBELLEK_LS, JSON.stringify(onb));
+    }
+    // Kart detayları yol→icerik haritası olarak BİRİKTİRİLİR (her kart kendi anahtarında kalır).
+    function onbellekDetayYaz(yol, icerik) {
+      const onb = onbellekOkuLS();
+      onb.zaman = new Date().toISOString();
+      onb.ekranlar = onb.ekranlar || {};
+      onb.ekranlar.detay = onb.ekranlar.detay || {};
+      onb.ekranlar.detay[yol] = icerik;
+      localStorage.setItem(ONBELLEK_LS, JSON.stringify(onb));
+    }
+    function cevrimdisiSeritHtml(zamanISO) {
+      let zamanMetin = 'bilinmiyor';
+      if (zamanISO) {
+        try { zamanMetin = new Date(zamanISO).toLocaleString('tr-TR'); } catch (e) { zamanMetin = zamanISO; }
+      }
+      return '<p class="cevrimdisi-serit">📴 çevrimdışı — son güncelleme ' + kacEt(zamanMetin) + '</p>';
+    }
+
+    // --- Rozet (üst şerit) ----------------------------------------------------------------------
+    function rozetGuncelle() {
+      const el = document.getElementById('durum-rozeti');
+      if (!el) return;
+      const kuyruk = kuyrukOkuLS();
+      const parcalar = [];
+      if (kuyruk.length) {
+        parcalar.push('<button type="button" id="rozet-gonder-btn" class="mini-btn">📤 ' + kuyruk.length + ' kayıt</button>');
+      }
+      if (navigator.onLine === false) {
+        parcalar.push('<span class="cevrimdisi-etiket">📴 çevrimdışı</span>');
+      }
+      el.innerHTML = parcalar.join(' ');
+      const gonderBtn = document.getElementById('rozet-gonder-btn');
+      if (gonderBtn) gonderBtn.addEventListener('click', kuyrukGonder);
+    }
+
+    // --- Kuyruğa alma + gönderim ------------------------------------------------------------------
+    function kuyrukOgeAnahtari(o) { return o.yol + '|' + o.zaman; }
+
+    function kuyrukEkleVeKaydet(yol, islem) {
+      const oge = { yol, islem, zaman: new Date().toISOString() };
+      kuyrukYazLS(kuyrukEkle(kuyrukOkuLS(), oge));
+      return { ok: true, kuyrukta: true };
+    }
+
+    // kuyrukGonder() → kuyrukIsle ile SIRALI dener (uygulaFn = canlı istemci.yaz); sonucu
+    // localStorage'a yazar; onay-bekleyen ögeler varsa in-page modal gösterir (native confirm YASAK).
+    async function kuyrukGonder() {
+      if (!durum.istemci) return;
+      if (navigator.onLine === false) { toastGoster('Çevrimdışı — gönderilemiyor'); return; }
+      const kuyrukOnce = kuyrukOkuLS();
+      if (!kuyrukOnce.length) return;
+      const sonuc = await kuyrukIsle(kuyrukOnce, (oge) => durum.istemci.yaz(oge.yol, oge.islem));
+      kuyrukYazLS(sonuc.kalan);
+      if (sonuc.gonderilen) toastGoster(sonuc.gonderilen + ' kayıt gönderildi');
+      const onayGerekenler = sonuc.kalan.filter((o) => o.beklemede === 'onay');
+      if (onayGerekenler.length) kuyrukOnayModalGoster(onayGerekenler);
+    }
+
+    function kuyrukOnayModalGoster(ogeler) {
+      const cont = document.getElementById('kuyruk-onay-liste');
+      cont.innerHTML = ogeler.map((o, idx) => {
+        const ozetMetin = (o.islem && (o.islem.aciklama || o.islem.metin || o.islem.etiket || o.islem.tip)) || '';
+        return '<div class="satir-satiri" data-idx="' + idx + '">' +
+          '<span class="satir-metin">' + kacEt(o.yol) + ' · ' + kacEt(ozetMetin) + '</span>' +
+          '<span class="satir-btnler"><button type="button" class="mini-btn kuyruk-onay-atla-btn">Atla</button></span></div>';
+      }).join('');
+      cont.querySelectorAll('.kuyruk-onay-atla-btn').forEach((btn, idx) => {
+        btn.addEventListener('click', () => {
+          const anahtar = kuyrukOgeAnahtari(ogeler[idx]);
+          kuyrukYazLS(kuyrukOkuLS().filter((o) => kuyrukOgeAnahtari(o) !== anahtar));
+          kuyrukOnayModalGoster(ogeler.filter((_, i) => i !== idx));
+          if (ogeler.length === 1) kuyrukOnayModalGizle();
+        });
+      });
+      document.getElementById('modal-kuyruk-onay').hidden = false;
+    }
+    function kuyrukOnayModalGizle() {
+      document.getElementById('modal-kuyruk-onay').hidden = true;
+    }
+    document.getElementById('kuyruk-onay-kapat').addEventListener('click', kuyrukOnayModalGizle);
+
+    window.addEventListener('online', () => { rozetGuncelle(); kuyrukGonder(); });
+    window.addEventListener('offline', () => { rozetGuncelle(); });
+
+    // --- Servis çalışanı kaydı (kabuk cache — Görev 6, sw.js dosyası ayrı) --------------------
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+
+    // --- Yazma kapısı (Görev 6) -----------------------------------------------------------------
+    // TÜM yazmalar BU fonksiyondan geçer; yol beyaz-listeyle sınırlanır (serbest yol üretme YASAK).
+    // Çevrimdışı (navigator.onLine === false) VEYA istemci henüz kurulmadıysa → doğrudan kuyruğa
+    // alınır. Çevrimiçiyken canlı yaz denenir; fetch AĞ İSTİSNASI fırlatırsa (tarayıcı gerçekten
+    // bağlantısız kalmışsa TypeError('Failed to fetch') tipik) → kuyruğa düşer (fallback). HTTP
+    // seviyeli hatalar (istemci.yaz'ın döndürdüğü {hata:'ag'/'cakisma'/...}) burada YUTULMAZ —
+    // olduğu gibi çağırana döner (yazVeYenile toast'ıyla gösterilir).
+    async function yazKapisi(yol, islem) {
+      if (!YAZ_YOL_WHITELIST.test(yol)) {
+        return { hata: 'yol-izinsiz', mesaj: 'İzinsiz yazma yolu: ' + yol };
+      }
+      if (navigator.onLine === false || !durum.istemci) {
+        return kuyrukEkleVeKaydet(yol, islem);
+      }
+      try {
+        return await durum.istemci.yaz(yol, islem);
+      } catch (e) {
+        return kuyrukEkleVeKaydet(yol, islem);
+      }
+    }
+
+    // yazVeYenile(yol, islem, yenileFn) → yazKapisi çağırır, sonuca göre toast gösterir,
+    // başarılıysa (hata YOK) yenileFn ile ekranı taze veriyle yeniler.
+    async function yazVeYenile(yol, islem, yenileFn) {
+      const sonuc = await yazKapisi(yol, islem);
+      if (sonuc && sonuc.hata === 'cakisma') {
+        toastGoster('Aynı anda başka değişiklik var, tekrar dene');
+        return sonuc;
+      }
+      if (sonuc && sonuc.hata) {
+        toastGoster(sonuc.mesaj || ('Hata: ' + sonuc.hata));
+        return sonuc;
+      }
+      if (sonuc && sonuc.kuyrukta) {
+        toastGoster('Çevrimdışı — kuyruğa alındı');
+      } else if (sonuc && sonuc.atlandi) {
+        toastGoster('Zaten kayıtlıydı');
+      } else {
+        toastGoster('Kaydedildi');
+      }
+      if (yenileFn) await yenileFn();
+      return sonuc;
+    }
+
+    // ==========================================================================================
+    // Kurulum sihirbazı
+    // ==========================================================================================
+    let kurulumState = { token: null };
+
+    function kurulumSihirbaziHazirla() {
+      kurulumState = { token: null };
+      document.getElementById('kurulum-token').value = '';
+      document.getElementById('kurulum-pin-1').value = '';
+      document.getElementById('kurulum-pin-2').value = '';
+      document.getElementById('kurulum-token-durum').hidden = true;
+      document.getElementById('kurulum-pin-hata').hidden = true;
+      kurulumAdimGoster(1);
+    }
+    function kurulumAdimGoster(n) {
+      [1, 2, 3].forEach((i) => { document.getElementById('kurulum-adim-' + i).hidden = i !== n; });
+    }
+    document.getElementById('kurulum-ileri-1').addEventListener('click', () => kurulumAdimGoster(2));
+
+    document.getElementById('kurulum-token-dene').addEventListener('click', kurulumTokenDene);
+    async function kurulumTokenDene() {
+      const token = document.getElementById('kurulum-token').value.trim();
+      const durumEl = document.getElementById('kurulum-token-durum');
+      durumEl.hidden = true;
+      if (!token) {
+        durumEl.textContent = 'Token gerekli.';
+        durumEl.hidden = false;
+        return;
+      }
+      const test = ghIstemci(window.fetch.bind(window), token, REPO);
+      const sonuc = await test.oku('00_Merkez/ANA_SAYFA.md');
+      if (sonuc.hata) {
+        durumEl.textContent = 'Bağlanamadı (HTTP ' + sonuc.durum + '). Token/izinleri kontrol edin.';
+        durumEl.hidden = false;
+        return;
+      }
+      kurulumState.token = token;
+      kurulumAdimGoster(3);
+    }
+
+    document.getElementById('kurulum-bitir').addEventListener('click', kurulumBitir);
+    async function kurulumBitir() {
+      const pin1 = document.getElementById('kurulum-pin-1').value;
+      const pin2 = document.getElementById('kurulum-pin-2').value;
+      const hataEl = document.getElementById('kurulum-pin-hata');
+      hataEl.hidden = true;
+      if (!pin1 || pin1 !== pin2) {
+        hataEl.textContent = 'PİN eşleşmiyor veya boş.';
+        hataEl.hidden = false;
+        return;
+      }
+      const paket = await tokenSifrele(crypto.subtle, crypto.getRandomValues.bind(crypto), pin1, kurulumState.token);
+      localStorage.setItem(ANAHTAR_LS, JSON.stringify(paket));
+      durum.token = kurulumState.token;
+      durum.istemci = ghIstemci(window.fetch.bind(window), durum.token, REPO);
+      await anaEkraniAc();
+    }
+
+    // ==========================================================================================
+    // PİN ekranı
+    // ==========================================================================================
+    function pinEkraniHazirla() {
+      document.getElementById('pin-giris').value = '';
+      document.getElementById('pin-hata').hidden = true;
+    }
+    document.getElementById('pin-ac-btn').addEventListener('click', pinDene);
+    document.getElementById('pin-giris').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') pinDene();
+    });
+    async function pinDene() {
+      const pin = document.getElementById('pin-giris').value;
+      const hataEl = document.getElementById('pin-hata');
+      hataEl.hidden = true;
+      if (!pin) return;
+      let paket = null;
+      try { paket = JSON.parse(localStorage.getItem(ANAHTAR_LS)); } catch (e) { paket = null; }
+      if (!paket) {
+        hataEl.textContent = 'Anahtar bozuk — yeniden kurulum gerekiyor.';
+        hataEl.hidden = false;
+        return;
+      }
+      const token = await tokenCoz(crypto.subtle, pin, paket);
+      if (!token) {
+        hataEl.textContent = 'Yanlış PİN.';
+        hataEl.hidden = false;
+        return;
+      }
+      durum.token = token;
+      durum.istemci = ghIstemci(window.fetch.bind(window), token, REPO);
+      await anaEkraniAc();
+    }
+    document.getElementById('pin-unut-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      modalOnayGoster('Kayıtlı anahtar silinsin mi? Token tekrar girilmesi gerekecek.', () => {
+        localStorage.removeItem(ANAHTAR_LS);
+        kurulumSihirbaziHazirla();
+        ekranGoster('ekran-kurulum');
+      });
+    });
+
+    // ==========================================================================================
+    // Ana ekran + sekme geçişleri
+    // ==========================================================================================
+    document.querySelectorAll('.sekme-btn').forEach((btn) => {
+      btn.addEventListener('click', () => sekmeGoster(btn.dataset.sekme));
+    });
+    function sekmeGoster(ad) {
+      durum.aktifSekme = ad;
+      ['isler', 'inbox', 'dikkat'].forEach((s) => {
+        document.getElementById('ekran-' + s).hidden = s !== ad;
+      });
+      document.querySelectorAll('.sekme-btn').forEach((btn) => {
+        btn.classList.toggle('aktif', btn.dataset.sekme === ad);
+      });
+    }
+    async function anaEkraniAc() {
+      ekranGoster('ekran-ana');
+      sekmeGoster(durum.aktifSekme || 'isler');
+      rozetGuncelle();
+      await Promise.all([islerYenile(), inboxYenile(), dikkatYenile()]);
+    }
+
+    // ==========================================================================================
+    // İşler sekmesi
+    // ==========================================================================================
+    // Çevrimdışıysa (veya canlı yükleme HTTP hatasıyla dönerse) 'mobil-onbellek'teki son başarılı
+    // liste görünümüne düşer + üstte 📴 şerit gösterir (Görev 6).
+    function islerOnbellektenGoster(cont, hataSonuc) {
+      const onb = onbellekOkuLS();
+      const kartlar = onb.ekranlar && onb.ekranlar.isler;
+      if (!kartlar) {
+        cont.innerHTML = '<p class="hata-serit">Bağlantı/anahtar sorunu' +
+          (hataSonuc && hataSonuc.durum ? ' (HTTP ' + hataSonuc.durum + ')' : '') + '</p>';
+        return;
+      }
+      islerListesiRender(cont, kartlar);
+      cont.insertAdjacentHTML('afterbegin', cevrimdisiSeritHtml(onb.zaman));
+    }
+    async function islerYenile() {
+      const cont = document.getElementById('ekran-isler');
+      cont.innerHTML = '<p class="yukleniyor">Yükleniyor…</p>';
+      if (navigator.onLine === false) { islerOnbellektenGoster(cont); return; }
+      const sonuc = await durum.istemci.listele('00_Merkez');
+      // M4 devri: listele HTTP hatasında {hata,durum} döner (DİZİ DEĞİL) — Array.isArray ile ayır.
+      if (!Array.isArray(sonuc)) {
+        islerOnbellektenGoster(cont, sonuc);
+        return;
+      }
+      const kartYollari = sonuc.filter((g) => /^IS_[a-z0-9-]+\.md$/.test(g.ad)).map((g) => g.yol);
+      const kartlar = [];
+      for (const yol of kartYollari) {
+        const dosya = await durum.istemci.oku(yol);
+        if (dosya.hata || dosya.yok) continue;
+        const { fm } = fmOku(dosya.icerik);
+        if (!fm) continue;
+        if (fm.durum === 'bitti' || fm.durum === 'arsiv') continue;
+        const toplamlar = finansToplamlari(bolumIcerigiOnekIleOku(dosya.icerik, '### 💵') || '');
+        kartlar.push({ yol, fm, toplamlar });
+      }
+      onbellekEkranYaz('isler', kartlar);
+      islerListesiRender(cont, kartlar);
+    }
+
+    function islerListesiRender(cont, kartlar) {
+      if (!kartlar.length) {
+        cont.innerHTML = '<p class="bos-mesaj">Aktif iş yok.</p>';
+        return;
+      }
+      const bugun = bugunYMD();
+      const parcalar = kartlar.map((k, idx) => {
+        const ad = kacEt(k.fm.is || k.yol);
+        const durumRenk = DURUM_RENK[k.fm.durum] || 'var(--fg-muted)';
+        const durumEtiket = kacEt(SABITLER.DURUM_ETIKET[k.fm.durum] || k.fm.durum || '');
+        const alinan = tlBicimle(k.toplamlar.alinan);
+        const beklenen = tlBicimle(k.toplamlar.beklenen);
+        const sonrakiTermin = k.fm['sonraki-termin'];
+        let terminHtml = '';
+        if (sonrakiTermin) {
+          const renk = terminRenk(sonrakiTermin, bugun);
+          terminHtml = '<span class="is-termin"' + (renk ? ' style="color:' + renk + ';font-weight:600"' : '') + '>📅 ' +
+            kacEt(sonrakiTermin) + (k.fm['termin-etiket'] ? ' · ' + kacEt(k.fm['termin-etiket']) : '') + '</span>';
+        }
+        // Not: 'idx' burada DÖNGÜ İNDEKSİ — kendi ürettiğimiz güvenli tamsayı (dosya içeriğinden
+        // GELMİYOR); data-idx özniteliğine bu yüzden doğrudan gömülebilir.
+        return '<button type="button" class="is-karti" data-idx="' + idx + '">' +
+          '<span class="is-durum-nokta" style="background:' + durumRenk + '"></span>' +
+          '<span class="is-govde"><span class="is-ad">' + ad + '</span>' +
+          '<span class="is-alt">' + durumEtiket + ' · 💵 ' + kacEt(alinan) + ' / ' + kacEt(beklenen) + ' TL</span>' +
+          terminHtml + '</span></button>';
+      }).join('');
+      cont.innerHTML = '<div class="is-liste">' + parcalar + '</div>';
+      cont.querySelectorAll('.is-karti').forEach((btn) => {
+        const idx = Number(btn.dataset.idx);
+        btn.addEventListener('click', () => kartAc(kartlar[idx].yol));
+      });
+    }
+
+    // ==========================================================================================
+    // İş kartı detay ekranı
+    // ==========================================================================================
+    async function kartAc(yol) {
+      ekranGoster('ekran-detay');
+      document.getElementById('ekran-detay').innerHTML = '<p class="yukleniyor">Yükleniyor…</p>';
+      await kartYenile(yol);
+    }
+
+    // kartOnbellektenGoster(yol) → bool — 'mobil-onbellek'te bu karta ait içerik varsa, onu
+    // kartDetayRender ile gösterir + 📴 şerit ekler; yoksa false döner (çağıran hata gösterir).
+    function kartOnbellektenGoster(yol) {
+      const onb = onbellekOkuLS();
+      const icerik = onb.ekranlar && onb.ekranlar.detay && onb.ekranlar.detay[yol];
+      if (icerik == null) return false;
+      const { fm } = fmOku(icerik);
+      durum.acikKart = { yol, icerik, fm: fm || {} };
+      detayVeri.finansDuzenleIdx = null;
+      detayVeri.terminDuzenleIdx = null;
+      kartDetayRender();
+      document.getElementById('ekran-detay').insertAdjacentHTML('afterbegin', cevrimdisiSeritHtml(onb.zaman));
+      return true;
+    }
+    async function kartYenile(yol) {
+      if (navigator.onLine === false) {
+        if (kartOnbellektenGoster(yol)) return;
+        const cont = document.getElementById('ekran-detay');
+        cont.innerHTML = '<p class="hata-serit">Çevrimdışı — kart önbellekte yok.</p><button type="button" id="detay-geri-hata" class="btn-metin">← Geri</button>';
+        document.getElementById('detay-geri-hata').addEventListener('click', () => {
+          ekranGoster('ekran-ana');
+          islerYenile();
+        });
+        return;
+      }
+      const dosya = await durum.istemci.oku(yol);
+      if (dosya.hata || dosya.yok) {
+        if (kartOnbellektenGoster(yol)) return;
+        const cont = document.getElementById('ekran-detay');
+        cont.innerHTML = '<p class="hata-serit">Kart okunamadı.</p><button type="button" id="detay-geri-hata" class="btn-metin">← Geri</button>';
+        document.getElementById('detay-geri-hata').addEventListener('click', () => {
+          ekranGoster('ekran-ana');
+          islerYenile();
+        });
+        return;
+      }
+      const { fm } = fmOku(dosya.icerik);
+      durum.acikKart = { yol, icerik: dosya.icerik, fm: fm || {} };
+      onbellekDetayYaz(yol, dosya.icerik);
+      detayVeri.finansDuzenleIdx = null;
+      detayVeri.terminDuzenleIdx = null;
+      kartDetayRender();
+    }
+
+    // finansSatirlariListele(bolumIcerik) → [{ham, bilgi}] — 'ham' TAM OLARAK dosyadaki satır
+    // metnidir (islemUygula içindeki metin.indexOf(ham) eşleşmesi için birebir gerekli).
+    function finansSatirlariListele(bolumIcerik) {
+      const sonuc = [];
+      for (const ham of String(bolumIcerik || '').split(/\r?\n/)) {
+        const t = ham.trim();
+        if (!t.startsWith('-')) continue;
+        const bilgi = finansSatirAyristir(t);
+        if (!bilgi) continue;
+        sonuc.push({ ham: t, bilgi });
+      }
+      return sonuc;
+    }
+
+    function kartDetayRender() {
+      const { yol, icerik, fm } = durum.acikKart;
+      const cont = document.getElementById('ekran-detay');
+      const finansIcerik = bolumIcerigiOnekIleOku(icerik, '### 💵') || '';
+      const terminIcerik = bolumIcerigiOnekIleOku(icerik, '### 📅') || '';
+      const notlarIcerik = bolumIcerigiOnekIleOku(icerik, '## 📝') || '';
+      detayVeri.finansSatirlar = finansSatirlariListele(finansIcerik);
+      detayVeri.terminSatirlar = terminSatirlariAyristir(terminIcerik);
+      const toplamlar = finansToplamlari(finansIcerik);
+      const notlarSatirlar = notlarIcerik.split(/\r?\n/).filter((s) => s.trim()).slice(0, 10);
+
+      cont.innerHTML =
+        '<div class="detay-ust">' +
+        '<button type="button" id="detay-geri" class="btn-metin">← Geri</button>' +
+        '<h1>' + kacEt(fm.is || yol) + '</h1>' +
+        '</div>' +
+
+        '<section class="detay-blok">' +
+        '<h2>Durum</h2>' +
+        '<select id="detay-durum-select">' +
+        ['aktif', 'aktif-saha', 'beklemede'].map((d) => '<option value="' + d + '">' + kacEt(SABITLER.DURUM_ETIKET[d]) + '</option>').join('') +
+        '</select>' +
+        '<label for="detay-ozet-input">Özet</label>' +
+        '<input type="text" id="detay-ozet-input" placeholder="Kısa durum özeti">' +
+        '<button type="button" id="detay-durum-kaydet" class="btn-birincil">Kaydet</button>' +
+        '</section>' +
+
+        '<section class="detay-blok">' +
+        '<h2>💵 Finans / Tahsilat</h2>' +
+        '<div class="finans-toplam">Alınan: <b>' + kacEt(tlBicimle(toplamlar.alinan)) + ' TL</b> · Beklenen: <b>' + kacEt(tlBicimle(toplamlar.beklenen)) + ' TL</b></div>' +
+        '<div id="finans-satir-liste"></div>' +
+        '<p id="finans-duzenle-rozet" class="duzenleme-serit" hidden>✏️ satır düzenleniyor — <button type="button" id="finans-vazgec" class="mini-btn">Vazgeç</button></p>' +
+        '<form id="finans-form">' +
+        '<label for="finans-tutar">Tutar</label>' +
+        '<input type="text" id="finans-tutar" placeholder="ör. 1.837.188,61" inputmode="decimal">' +
+        '<label for="finans-aciklama">Açıklama</label>' +
+        '<input type="text" id="finans-aciklama" placeholder="Açıklama">' +
+        '<label class="checkbox-satir"><input type="checkbox" id="finans-beklenen-kutu"> Beklenen (ileri tarihli)</label>' +
+        '<input type="date" id="finans-tarih" hidden>' +
+        '<button type="submit" class="btn-birincil">Ekle</button>' +
+        '</form>' +
+        '</section>' +
+
+        '<section class="detay-blok">' +
+        '<h2>📅 Süre / Termin</h2>' +
+        '<div id="termin-satir-liste"></div>' +
+        '<p id="termin-duzenle-rozet" class="duzenleme-serit" hidden>✏️ satır düzenleniyor — <button type="button" id="termin-vazgec" class="mini-btn">Vazgeç</button></p>' +
+        '<div id="termin-oneri-liste"></div>' +
+        '<form id="termin-form">' +
+        '<label for="termin-etiket">Etiket</label>' +
+        '<input type="text" id="termin-etiket" placeholder="ör. statik teslim">' +
+        '<label for="termin-tarih">Tarih</label>' +
+        '<input type="date" id="termin-tarih">' +
+        '<button type="submit" class="btn-birincil">Ekle</button>' +
+        '</form>' +
+        '</section>' +
+
+        '<section class="detay-blok">' +
+        '<h2>📝 Notlar</h2>' +
+        '<div class="notlar-metin">' + (notlarSatirlar.length ? kacEt(notlarSatirlar.join('\n')) : '(not yok)') + '</div>' +
+        '</section>';
+
+      document.getElementById('detay-durum-select').value = fm.durum || '';
+      document.getElementById('detay-ozet-input').value = fm['durum-ozet'] || '';
+      document.getElementById('detay-geri').addEventListener('click', () => {
+        ekranGoster('ekran-ana');
+        islerYenile();
+      });
+      document.getElementById('detay-durum-kaydet').addEventListener('click', detayDurumKaydet);
+
+      finansSatirListesiRender();
+      document.getElementById('finans-beklenen-kutu').addEventListener('change', (e) => {
+        document.getElementById('finans-tarih').hidden = !e.target.checked;
+      });
+      document.getElementById('finans-vazgec').addEventListener('click', finansDuzenleVazgec);
+      document.getElementById('finans-form').addEventListener('submit', finansFormGonder);
+
+      terminOneriRender();
+      terminSatirListesiRender();
+      document.getElementById('termin-vazgec').addEventListener('click', terminDuzenleVazgec);
+      document.getElementById('termin-form').addEventListener('submit', terminFormGonder);
+    }
+
+    async function detayDurumKaydet() {
+      const yeniDurum = document.getElementById('detay-durum-select').value;
+      const ozet = document.getElementById('detay-ozet-input').value.trim();
+      const islem = { tip: 'durum', durum: yeniDurum, ozet, bugun: bugunYMD() };
+      await yazVeYenile(durum.acikKart.yol, islem, () => kartYenile(durum.acikKart.yol));
+    }
+
+    // --- 💵 Finans satırları ------------------------------------------------------------------
+    function finansSatirListesiRender() {
+      const cont = document.getElementById('finans-satir-liste');
+      const satirlar = detayVeri.finansSatirlar;
+      if (!satirlar.length) {
+        cont.innerHTML = '<p class="bos-mesaj">Henüz kayıt yok.</p>';
+        return;
+      }
+      cont.innerHTML = satirlar.map((s, idx) => {
+        const tipEtiket = s.bilgi.tip === 'ALINAN' ? '✅ ALINAN' : '⏳ BEKLENEN';
+        const tarihMetin = s.bilgi.tip === 'ALINAN' ? s.bilgi.tarih : (s.bilgi.beklenenTarih || 'belirsiz');
+        return '<div class="satir-satiri" data-idx="' + idx + '">' +
+          '<span class="satir-metin">' + kacEt(tipEtiket) + ' · ' + kacEt(tlBicimle(s.bilgi.tutar)) + ' TL · ' + kacEt(s.bilgi.aciklama) + ' · ' + kacEt(tarihMetin) + '</span>' +
+          '<span class="satir-btnler">' +
+          (s.bilgi.tip === 'BEKLENEN' ? '<button type="button" class="mini-btn satir-tahsil-btn">✓ Tahsil</button>' : '') +
+          '<button type="button" class="mini-btn satir-duzenle-btn">✏️</button>' +
+          '<button type="button" class="mini-btn satir-sil-btn">✕</button>' +
+          '</span></div>';
+      }).join('');
+      cont.querySelectorAll('.satir-satiri').forEach((el) => {
+        const idx = Number(el.dataset.idx);
+        const satir = satirlar[idx];
+        const tahsilBtn = el.querySelector('.satir-tahsil-btn');
+        if (tahsilBtn) tahsilBtn.addEventListener('click', () => finansTahsilEt(satir));
+        el.querySelector('.satir-duzenle-btn').addEventListener('click', () => finansDuzenleAc(idx));
+        el.querySelector('.satir-sil-btn').addEventListener('click', () => finansSil(satir));
+      });
+    }
+    async function finansTahsilEt(satir) {
+      const islem = { tip: 'tahsil-et', ham: satir.ham, bugun: bugunYMD() };
+      await yazVeYenile(durum.acikKart.yol, islem, () => kartYenile(durum.acikKart.yol));
+    }
+    function finansSil(satir) {
+      modalOnayGoster('Bu finans satırı silinsin mi?\n' + satir.ham, async () => {
+        const islem = { tip: 'satir-sil', bolum: 'finans', ham: satir.ham, bugun: bugunYMD() };
+        await yazVeYenile(durum.acikKart.yol, islem, () => kartYenile(durum.acikKart.yol));
+      });
+    }
+    function finansDuzenleAc(idx) {
+      const satir = detayVeri.finansSatirlar[idx];
+      detayVeri.finansDuzenleIdx = idx;
+      document.getElementById('finans-tutar').value = String(satir.bilgi.tutar);
+      document.getElementById('finans-aciklama').value = satir.bilgi.aciklama;
+      const beklenenKutu = document.getElementById('finans-beklenen-kutu');
+      beklenenKutu.checked = satir.bilgi.tip === 'BEKLENEN';
+      document.getElementById('finans-tarih').hidden = !beklenenKutu.checked;
+      document.getElementById('finans-tarih').value = satir.bilgi.beklenenTarih || '';
+      document.getElementById('finans-duzenle-rozet').hidden = false;
+    }
+    function finansDuzenleVazgec() {
+      detayVeri.finansDuzenleIdx = null;
+      document.getElementById('finans-form').reset();
+      document.getElementById('finans-tarih').hidden = true;
+      document.getElementById('finans-duzenle-rozet').hidden = true;
+    }
+    async function finansFormGonder(e) {
+      e.preventDefault();
+      const tutarStr = document.getElementById('finans-tutar').value;
+      const aciklama = document.getElementById('finans-aciklama').value.trim();
+      const beklenenMi = document.getElementById('finans-beklenen-kutu').checked;
+      const tarih = document.getElementById('finans-tarih').value || null;
+      if (!aciklama) { toastGoster('Açıklama gerekli'); return; }
+      const bugun = bugunYMD();
+      let islem;
+      if (detayVeri.finansDuzenleIdx != null) {
+        const eski = detayVeri.finansSatirlar[detayVeri.finansDuzenleIdx];
+        islem = { tip: 'satir-degistir', bolum: 'finans', eskiHam: eski.ham, bugun, girdiler: { tutar: tutarStr, aciklama, beklenenMi, beklenenTarih: tarih } };
+      } else if (beklenenMi) {
+        islem = { tip: 'beklenen', tutar: tutarStr, aciklama, tarih, bugun };
+      } else {
+        islem = { tip: 'tahsilat', tutar: tutarStr, aciklama, bugun };
+      }
+      await yazVeYenile(durum.acikKart.yol, islem, () => kartYenile(durum.acikKart.yol));
+    }
+
+    // --- 📅 Termin satırları -------------------------------------------------------------------
+    function terminOneriRender() {
+      const cont = document.getElementById('termin-oneri-liste');
+      const oneriler = terminOnerileri(durum.acikKart.fm.katmanlar || []);
+      cont.innerHTML = oneriler.map((o, idx) => '<button type="button" class="mini-btn oneri-btn" data-idx="' + idx + '">' + kacEt(o) + '</button>').join(' ');
+      cont.querySelectorAll('.oneri-btn').forEach((btn) => {
+        const idx = Number(btn.dataset.idx);
+        btn.addEventListener('click', () => { document.getElementById('termin-etiket').value = oneriler[idx]; });
+      });
+    }
+    function terminSatirListesiRender() {
+      const cont = document.getElementById('termin-satir-liste');
+      const satirlar = detayVeri.terminSatirlar;
+      if (!satirlar.length) {
+        cont.innerHTML = '<p class="bos-mesaj">Henüz termin yok.</p>';
+        return;
+      }
+      const bugun = bugunYMD();
+      cont.innerHTML = satirlar.map((t, idx) => {
+        const renk = !t.yapildi ? terminRenk(t.tarih, bugun) : null;
+        return '<div class="satir-satiri" data-idx="' + idx + '">' +
+          '<span class="satir-metin' + (t.yapildi ? ' bitti-metin' : '') + '"' + (renk ? ' style="color:' + renk + ';font-weight:600"' : '') + '>' +
+          (t.yapildi ? '✓ ' : '') + kacEt(t.etiket) + ' · ' + kacEt(t.tarih) + (t.not ? ' · ' + kacEt(t.not) : '') +
+          '</span><span class="satir-btnler">' +
+          (!t.yapildi ? '<button type="button" class="mini-btn termin-yapildi-btn">✓ Yapıldı</button>' : '') +
+          '<button type="button" class="mini-btn termin-duzenle-btn">✏️</button>' +
+          '<button type="button" class="mini-btn termin-sil-btn">✕</button>' +
+          '</span></div>';
+      }).join('');
+      cont.querySelectorAll('.satir-satiri').forEach((el) => {
+        const idx = Number(el.dataset.idx);
+        const satir = satirlar[idx];
+        const yapildiBtn = el.querySelector('.termin-yapildi-btn');
+        if (yapildiBtn) yapildiBtn.addEventListener('click', () => terminYapildi(satir));
+        el.querySelector('.termin-duzenle-btn').addEventListener('click', () => terminDuzenleAc(idx));
+        el.querySelector('.termin-sil-btn').addEventListener('click', () => terminSil(satir));
+      });
+    }
+    async function terminYapildi(satir) {
+      const islem = { tip: 'termin-yapildi', ham: satir.ham, bugun: bugunYMD() };
+      await yazVeYenile(durum.acikKart.yol, islem, () => kartYenile(durum.acikKart.yol));
+    }
+    function terminSil(satir) {
+      modalOnayGoster('Bu termin satırı silinsin mi?\n' + satir.ham, async () => {
+        const islem = { tip: 'satir-sil', bolum: 'termin', ham: satir.ham, bugun: bugunYMD() };
+        await yazVeYenile(durum.acikKart.yol, islem, () => kartYenile(durum.acikKart.yol));
+      });
+    }
+    function terminDuzenleAc(idx) {
+      const satir = detayVeri.terminSatirlar[idx];
+      detayVeri.terminDuzenleIdx = idx;
+      document.getElementById('termin-etiket').value = satir.etiket;
+      document.getElementById('termin-tarih').value = satir.tarih;
+      document.getElementById('termin-duzenle-rozet').hidden = false;
+    }
+    function terminDuzenleVazgec() {
+      detayVeri.terminDuzenleIdx = null;
+      document.getElementById('termin-form').reset();
+      document.getElementById('termin-duzenle-rozet').hidden = true;
+    }
+    async function terminFormGonder(e) {
+      e.preventDefault();
+      const etiket = document.getElementById('termin-etiket').value.trim();
+      const tarih = document.getElementById('termin-tarih').value;
+      if (!etiket || !tarih) { toastGoster('Etiket + tarih gerekli'); return; }
+      const bugun = bugunYMD();
+      let islem;
+      if (detayVeri.terminDuzenleIdx != null) {
+        const eski = detayVeri.terminSatirlar[detayVeri.terminDuzenleIdx];
+        islem = { tip: 'satir-degistir', bolum: 'termin', eskiHam: eski.ham, bugun, girdiler: { etiket, tarihYMD: tarih, not: eski.not || '' } };
+      } else {
+        islem = { tip: 'termin', etiket, tarih, bugun };
+      }
+      await yazVeYenile(durum.acikKart.yol, islem, () => kartYenile(durum.acikKart.yol));
+    }
+
+    // ==========================================================================================
+    // INBOX sekmesi
+    // ==========================================================================================
+    function inboxOnbellektenGoster(cont, dosyaHata) {
+      const onb = onbellekOkuLS();
+      const satirlar = onb.ekranlar && onb.ekranlar.inbox;
+      if (!satirlar) {
+        cont.innerHTML = '<p class="hata-serit">Bağlantı/anahtar sorunu' + (dosyaHata && dosyaHata.durum ? ' (HTTP ' + dosyaHata.durum + ')' : '') + '</p>';
+        return;
+      }
+      inboxRender(cont, satirlar);
+      cont.insertAdjacentHTML('afterbegin', cevrimdisiSeritHtml(onb.zaman));
+    }
+    async function inboxYenile() {
+      const cont = document.getElementById('ekran-inbox');
+      cont.innerHTML = '<p class="yukleniyor">Yükleniyor…</p>';
+      if (navigator.onLine === false) { inboxOnbellektenGoster(cont); return; }
+      const dosya = await durum.istemci.oku('00_Merkez/INBOX.md');
+      if (dosya.hata) {
+        inboxOnbellektenGoster(cont, dosya);
+        return;
+      }
+      const icerik = dosya.yok ? '' : dosya.icerik;
+      const bolum = bolumIcerigiOnekIleOku(icerik, '## ⬇️ Yakala') || '';
+      const satirlar = bolum.split(/\r?\n/).filter((s) => s.startsWith('- ') && s.trim() !== '-');
+      onbellekEkranYaz('inbox', satirlar);
+      inboxRender(cont, satirlar);
+    }
+    function inboxRender(cont, satirlar) {
+      const listeHtml = satirlar.length
+        ? satirlar.map((s, idx) => '<div class="satir-satiri" data-idx="' + idx + '"><span class="satir-metin">' + kacEt(s.slice(2)) + '</span><span class="satir-btnler"><button type="button" class="mini-btn inbox-sil-btn">✕</button></span></div>').join('')
+        : '<p class="bos-mesaj">INBOX boş.</p>';
+      cont.innerHTML = '<h2>📥 INBOX</h2>' +
+        '<form id="inbox-form"><label for="inbox-metin">Yakala</label>' +
+        '<textarea id="inbox-metin" placeholder="Aklına geleni yaz…" rows="2"></textarea>' +
+        '<button type="submit" class="btn-birincil">Yakala</button></form>' +
+        '<div id="inbox-liste">' + listeHtml + '</div>';
+      document.getElementById('inbox-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const metin = document.getElementById('inbox-metin').value.trim();
+        if (!metin) return;
+        await yazVeYenile('00_Merkez/INBOX.md', { tip: 'inbox-yakala', metin, bugun: bugunYMD() }, inboxYenile);
+      });
+      cont.querySelectorAll('.satir-satiri').forEach((el) => {
+        const idx = Number(el.dataset.idx);
+        const ham = satirlar[idx];
+        el.querySelector('.inbox-sil-btn').addEventListener('click', () => {
+          modalOnayGoster('Bu not silinsin mi?\n' + ham.slice(2), async () => {
+            await yazVeYenile('00_Merkez/INBOX.md', { tip: 'satir-sil', bolum: 'inbox', ham, bugun: bugunYMD() }, inboxYenile);
+          });
+        });
+      });
+    }
+
+    // ==========================================================================================
+    // DİKKAT sekmesi
+    // ==========================================================================================
+    function dikkatOnbellektenGoster(cont, dosyaHata) {
+      const onb = onbellekOkuLS();
+      const maddeler = onb.ekranlar && onb.ekranlar.dikkat;
+      if (!maddeler) {
+        cont.innerHTML = '<p class="hata-serit">Bağlantı/anahtar sorunu' + (dosyaHata && dosyaHata.durum ? ' (HTTP ' + dosyaHata.durum + ')' : '') + '</p>';
+        return;
+      }
+      dikkatRender(cont, maddeler);
+      cont.insertAdjacentHTML('afterbegin', cevrimdisiSeritHtml(onb.zaman));
+    }
+    async function dikkatYenile() {
+      const cont = document.getElementById('ekran-dikkat');
+      cont.innerHTML = '<p class="yukleniyor">Yükleniyor…</p>';
+      if (navigator.onLine === false) { dikkatOnbellektenGoster(cont); return; }
+      const dosya = await durum.istemci.oku('00_Merkez/ANA_SAYFA.md');
+      if (dosya.hata) {
+        dikkatOnbellektenGoster(cont, dosya);
+        return;
+      }
+      const icerik = dosya.yok ? '' : dosya.icerik;
+      const maddeler = dikkatOku(icerik);
+      onbellekEkranYaz('dikkat', maddeler);
+      dikkatRender(cont, maddeler);
+    }
+    function dikkatRender(cont, maddeler) {
+      const listeHtml = maddeler.length
+        ? maddeler.map((m, idx) => {
+          const bitti = m.startsWith('✅ ');
+          return '<div class="satir-satiri" data-idx="' + idx + '">' +
+            '<span class="satir-metin' + (bitti ? ' bitti-metin' : '') + '">' + kacEt(m) + '</span>' +
+            (bitti ? '' : '<span class="satir-btnler"><button type="button" class="mini-btn dikkat-bitir-btn">✓</button></span>') +
+            '</div>';
+        }).join('')
+        : '<p class="bos-mesaj">Dikkat listesi boş.</p>';
+      cont.innerHTML = '<h2>📌 DİKKAT</h2><div id="dikkat-liste">' + listeHtml + '</div>' +
+        '<form id="dikkat-form"><label for="dikkat-metin">Yeni madde</label>' +
+        '<input type="text" id="dikkat-metin" placeholder="Yeni dikkat maddesi…">' +
+        '<button type="submit" class="btn-birincil">Ekle</button></form>';
+      cont.querySelectorAll('.satir-satiri').forEach((el) => {
+        const idx = Number(el.dataset.idx);
+        const btn = el.querySelector('.dikkat-bitir-btn');
+        if (btn) btn.addEventListener('click', async () => {
+          await yazVeYenile('00_Merkez/ANA_SAYFA.md', { tip: 'dikkat-bitir', index: idx }, dikkatYenile);
+        });
+      });
+      document.getElementById('dikkat-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const metin = document.getElementById('dikkat-metin').value.trim();
+        if (!metin) return;
+        await yazVeYenile('00_Merkez/ANA_SAYFA.md', { tip: 'dikkat-ekle', metin }, dikkatYenile);
+      });
+    }
+
+    // ==========================================================================================
+    // Açılış
+    // ==========================================================================================
+    function baslat() {
+      const paketHam = localStorage.getItem(ANAHTAR_LS);
+      if (paketHam) {
+        pinEkraniHazirla();
+        ekranGoster('ekran-pin');
+      } else {
+        kurulumSihirbaziHazirla();
+        ekranGoster('ekran-kurulum');
+      }
+    }
+    baslat();
+  </script>
+</body>
+
+</html>
