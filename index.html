@@ -1212,18 +1212,31 @@
       return { ok: true, kuyrukta: true };
     }
 
+    // kuyrukGonderiliyor: aynı anda TEK kuyrukGonder geçişi — 'online' olayı (çırpınan mobil
+    // ağlarda tekrar tekrar ateşlenir) + elle Gönder dokunuşu ÇAKIŞIP aynı kuyruğu iki kez
+    // işlemesin diye (non-idempotent işlemler iki kez uygulanırsa sahte 'satir-yok' onay
+    // modalı doğurur). Her iki tetikleyici de (aşağıdaki 'online' dinleyicisi ve rozet
+    // butonu) AYNI kuyrukGonder'i çağırır — kilit burada tek noktadan uygulanır.
+    let kuyrukGonderiliyor = false;
+
     // kuyrukGonder() → kuyrukIsle ile SIRALI dener (uygulaFn = canlı istemci.yaz); sonucu
     // localStorage'a yazar; onay-bekleyen ögeler varsa in-page modal gösterir (native confirm YASAK).
     async function kuyrukGonder() {
-      if (!durum.istemci) return;
-      if (navigator.onLine === false) { toastGoster('Çevrimdışı — gönderilemiyor'); return; }
-      const kuyrukOnce = kuyrukOkuLS();
-      if (!kuyrukOnce.length) return;
-      const sonuc = await kuyrukIsle(kuyrukOnce, (oge) => durum.istemci.yaz(oge.yol, oge.islem));
-      kuyrukYazLS(sonuc.kalan);
-      if (sonuc.gonderilen) toastGoster(sonuc.gonderilen + ' kayıt gönderildi');
-      const onayGerekenler = sonuc.kalan.filter((o) => o.beklemede === 'onay');
-      if (onayGerekenler.length) kuyrukOnayModalGoster(onayGerekenler);
+      if (kuyrukGonderiliyor) return;
+      kuyrukGonderiliyor = true;
+      try {
+        if (!durum.istemci) return;
+        if (navigator.onLine === false) { toastGoster('Çevrimdışı — gönderilemiyor'); return; }
+        const kuyrukOnce = kuyrukOkuLS();
+        if (!kuyrukOnce.length) return;
+        const sonuc = await kuyrukIsle(kuyrukOnce, (oge) => durum.istemci.yaz(oge.yol, oge.islem));
+        kuyrukYazLS(sonuc.kalan);
+        if (sonuc.gonderilen) toastGoster(sonuc.gonderilen + ' kayıt gönderildi');
+        const onayGerekenler = sonuc.kalan.filter((o) => o.beklemede === 'onay');
+        if (onayGerekenler.length) kuyrukOnayModalGoster(onayGerekenler);
+      } finally {
+        kuyrukGonderiliyor = false;
+      }
     }
 
     function kuyrukOnayModalGoster(ogeler) {

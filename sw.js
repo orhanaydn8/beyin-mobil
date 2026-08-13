@@ -5,7 +5,12 @@
 // handler'ı yalnız SAME-ORIGIN isteklere devreye girer, api.github.com (ve her çapraz-origin
 // istek) bu SW'ye hiç uğramadan doğrudan ağa gider.
 
-const CACHE_ADI = 'beyin-mobil-v1';
+// CACHE_ADI: 'SURUM' yer tutucudur — yayinla.js her yayın koşusunda bu literal'i
+// 'beyin-mobil-<ISO tarih+saat>' ile DEĞİŞTİRİR (yalnız YAYIN kopyasında; geliştirme
+// kopyasında yer tutucu aynen kalır — dev'de SW zaten localhost'ta önemsiz). Bayt-düzeyinde
+// değişen bu satır sayesinde tarayıcı her yayında sw.js'in DEĞİŞTİĞİNİ görür, yeniden
+// yükler/kurar; activate handler'ı (aşağıda) eski isimli cache'leri temizler.
+const CACHE_ADI = 'beyin-mobil-20260813T174749';
 // Yayında (GitHub Pages) beyin-mobil.html → index.html adıyla kopyalanır (Görev 7 yayinla.js);
 // geliştirmede ise dosya doğrudan beyin-mobil.html adıyla açılır. İkisi de kabuğa dahil: './' ve
 // './index.html' yayın bağlamını, './beyin-mobil.html' geliştirme/doğrudan-dosya bağlamını
