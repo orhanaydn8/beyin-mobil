@@ -10,7 +10,7 @@
 // kopyasında yer tutucu aynen kalır — dev'de SW zaten localhost'ta önemsiz). Bayt-düzeyinde
 // değişen bu satır sayesinde tarayıcı her yayında sw.js'in DEĞİŞTİĞİNİ görür, yeniden
 // yükler/kurar; activate handler'ı (aşağıda) eski isimli cache'leri temizler.
-const CACHE_ADI = 'beyin-mobil-20260813T174749';
+const CACHE_ADI = 'beyin-mobil-20260817T092908';
 // Yayında (GitHub Pages) beyin-mobil.html → index.html adıyla kopyalanır (Görev 7 yayinla.js);
 // geliştirmede ise dosya doğrudan beyin-mobil.html adıyla açılır. İkisi de kabuğa dahil: './' ve
 // './index.html' yayın bağlamını, './beyin-mobil.html' geliştirme/doğrudan-dosya bağlamını
